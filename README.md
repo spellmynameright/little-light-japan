@@ -5,6 +5,7 @@ A gentle idle life game. You arrive in a small Tokyo neighborhood with a suitcas
 Play: https://spellmynameright.github.io/little-light-japan/ (after deployment — see DEPLOY.md). Works on iPhone; use Share → Add to Home Screen for a full-screen app.
 
 ## How it plays
+- **Mrs. Sato's welcome.** A new game starts quietly: nothing runs until your downstairs neighbor, Mrs. Sato, knocks and walks you through the first ten minutes — begin studying, help, improve, claim a goal, hear her story, try a lesson, open the corner shop, start a routine. Each step waits for the real action and glows on the button that does it. It can be skipped, and replayed from Settings.
 - **One character, eight places.** Choose a place; your character walks there and repeats its work on their own. Tap **Help** (or the character) to speed up the task in front of them — never free currency. Each finished task earns experience (XP) plus Japanese, culture or connection.
 - **Improve and automate.** Spend XP to improve places (new furniture and decorations appear at levels 10, 25, 50 and 100; production doubles at 25, 50, 100…). A **routine** keeps a place going while you are elsewhere and for up to 8 hours away. Each place has one piece of equipment.
 - **Learn Japanese.** Ten short lessons (68 words), fifteen everyday situations (including four city dialects), and a study notebook that fills with hiragana, katakana and first kanji as your character studies. Japanese opens new places, translates signs and labels, and makes story dialogue readable word by word.
@@ -24,6 +25,7 @@ A real-time 3D neighborhood built from code (Three.js, no model files): two stre
 - `dist/engine.js` — the rules: economy, time stepping, learning, people, elders, projects, entrusting, saves. Pure; runs in Node.
 - `dist/app.js` — the interface: save/clock, HUD, place card, popups (stories, lessons, elders, entrusting, finale), settings.
 - `dist/panels.js` — the Learn, People and Journey tabs.
+- `dist/tutorial.js` — Mrs. Sato's step-by-step welcome (steps, glow on the target button, skip and replay).
 - `dist/audio.js` — procedural sounds (Web Audio).
 - `dist/world.js` — the 3D town: camera, lighting/time of day, people, train, weather, labels, touch controls.
 - `dist/world/kit.js` — merges simple shapes into vertex-coloured meshes; sign textures.

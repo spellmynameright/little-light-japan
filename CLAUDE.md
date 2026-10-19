@@ -8,7 +8,7 @@ A traditional incremental / idle life game about a missionary in Japan. Referenc
 Japanese combines idle study with playable lessons; as the player learns, labels, signs and dialogue become readable. Culture, friendship, hospitality, Christian faith and local leadership matter. Tone: George MacDonald / C. S. Lewis — wonder, humility, hope, service, mutuality; never a contemporary evangelical sales pitch. People are not conversion targets or a currency. Prestige means developing and appointing local elders, entrusting a church, and beginning again in a new city. Sister project for inspiration: `spellmynameright/japan-evangelistic-band` (JEB) — the readable-signs and word-by-word dialogue ideas came from its walking prototype.
 
 ## Structure (v1.0, "the overhaul")
-Buildless HTML/CSS/JS; vendored Three.js 0.180.0; no backend. Classic scripts share globals in this order: `journey.js` (window.Journey) → `content.js` (window.Content) → `engine.js` (window.Idle) → `audio.js` (window.Sound) → `app.js` (window.App, window.GameBridge) → `panels.js` (fills App.panels). `world.js` is an ES module importing `world/kit.js`, `world/town.js`, `world/people.js`; it reads state through `window.GameBridge` every frame and exposes `window.WorldView`. It never mutates game state.
+Buildless HTML/CSS/JS; vendored Three.js 0.180.0; no backend. Classic scripts share globals in this order: `journey.js` (window.Journey) → `content.js` (window.Content) → `engine.js` (window.Idle) → `audio.js` (window.Sound) → `app.js` (window.App, window.GameBridge) → `panels.js` (fills App.panels) → `tutorial.js` (Mrs. Sato's welcome, App.tutorial). `world.js` is an ES module importing `world/kit.js`, `world/town.js`, `world/people.js`; it reads state through `window.GameBridge` every frame and exposes `window.WorldView`. It never mutates game state.
 
 - Economy knobs live in `engine.js`: `ACTIVITIES` (cost ladder ~12×, payout ~7×, cycle seconds 3→80), `TUNE` (price growth 1.15, milestone levels, ×2 per milestone), `BOOSTS`, `GOALS` (reward = seconds of production), `TRAINING_TIME` (mentoring 5/8/12 minutes), city `goal` in `journey.js`. Learning (Japanese/culture/connection) is paced per second by `levelFactor` and does not speed up with cycle speed.
 - After any balance change run `node tests/pacing.cjs 600 0` and `node tests/campaign.test.cjs`. Current targets: ~30–50 focused minutes per city, ~3½ hours total.
@@ -18,7 +18,8 @@ Buildless HTML/CSS/JS; vendored Three.js 0.180.0; no backend. Classic scripts sh
 ## Contracts to preserve
 - localStorage key `little-light-japan-v2`; save `version` 2, `revision` 6. Older revisions must keep loading: give new fields defaults in `fresh()` and validate them in `hydrate()`.
 - One wall-clock cursor advances the game; saving advances it first. Offline credit is capped at 8 hours. No double credit on visibility changes or reload.
-- The focused activity repeats without automation; routines keep other places going.
+- The focused activity repeats without automation; routines keep other places going. Exception: a brand-new game starts `resting` (nothing runs) until the player taps Begin studying.
+- `s.tutorial` is the welcome step (99 = finished). Saves without the field are treated as finished. Tutorial steps live in `tutorial.js`: each has `say`, an optional `target` selector to glow, and a `done(s)` condition (or a `button`).
 - Help/tap advances the focused task by 0.65 s; rewards come at completion, never as unrelated currency.
 - Projects, lessons (first completion), situations, stories and the ending cannot pay twice.
 - Story progress commits only when a response is chosen; closing a popup must not consume it. Elder conversations commit when opened.

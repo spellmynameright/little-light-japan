@@ -1,9 +1,9 @@
 // A Little Light — offline support.
 // The page itself is fetched fresh when online (so updates arrive); everything else is
 // served from the cache first. Bump VERSION whenever files change.
-const VERSION = 'little-light-v6';
+const VERSION = 'little-light-v7';
 const CORE = [
-  './', 'index.html', 'style.css?v=6', 'journey.js?v=6', 'content.js?v=6', 'engine.js?v=6', 'audio.js?v=6', 'app.js?v=6', 'panels.js?v=6', 'world.js?v=6',
+  './', 'index.html', 'style.css?v=7', 'journey.js?v=7', 'content.js?v=7', 'engine.js?v=7', 'audio.js?v=7', 'app.js?v=7', 'panels.js?v=7', 'tutorial.js?v=7', 'world.js?v=7',
   'world/kit.js', 'world/town.js', 'world/people.js', 'vendor/three.module.js', 'vendor/three.core.js',
   'assets/neighbors.webp', 'assets/neighborhood.webp', 'icons/icon-192.png', 'manifest.webmanifest'
 ];

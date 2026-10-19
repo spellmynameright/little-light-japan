@@ -204,7 +204,7 @@ assert.throws(() => E.hydrate({}));
 assert.throws(() => E.hydrate({ ...JSON.parse(JSON.stringify(church)), xp: -5 }));
 const rev5 = JSON.parse(JSON.stringify(E.fresh()));
 rev5.revision = 5; rev5.started = true;
-delete rev5.lessons; delete rev5.choices; delete rev5.moments; delete rev5.studied; delete rev5.clock;
+delete rev5.lessons; delete rev5.tutorial; delete rev5.resting; delete rev5.choices; delete rev5.moments; delete rev5.studied; delete rev5.clock;
 rev5.stations[0].cycles = 77;
 rev5.elders[0] = { training: 2, progress: 10, running: true, appointed: false };
 rev5.learned = [0, 1, 27, 99];
@@ -223,6 +223,19 @@ assert.equal(v1.xp, 1200);
 assert.equal(v1.stations[0].auto, true);
 assert.equal(v1.stories.emi, 2);
 assert.equal(E.hydrate(JSON.parse(JSON.stringify(v1))).jp, 66);
+
+// A quiet start: while resting nothing runs and help does nothing; beginning work clears it.
+let quiet = E.fresh();
+quiet.started = true; quiet.resting = true;
+E.step(quiet, 30);
+assert.equal(quiet.stations[0].cycles, 0);
+assert.equal(E.assist(quiet).seconds, 0);
+assert.equal(E.hydrate(JSON.parse(JSON.stringify(quiet))).resting, true, 'a reload mid-welcome stays resting');
+E.start(quiet, 0);
+E.step(quiet, 3);
+assert.equal(quiet.stations[0].cycles, 1);
+assert.equal(up.tutorial, E.TUTORIAL_DONE, 'older saves skip the welcome');
+assert.equal(v1.tutorial, E.TUTORIAL_DONE);
 
 // Content sanity: every story has two choices, responses and gains; every lesson has eight known words.
 for (const [id, list] of Object.entries(C.stories)) {

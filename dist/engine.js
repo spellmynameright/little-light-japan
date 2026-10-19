@@ -7,6 +7,7 @@
   const CONTENT = typeof module !== 'undefined' ? require('./content.js') : root.Content;
 
   const REVISION = 6;
+  const TUTORIAL_DONE = 99; // s.tutorial is the step of Mrs. Sato's welcome; 99 means finished
   const OFFLINE_CAP = 28800; // seconds (8 hours)
   const HELP_SECONDS = 0.65; // one tap advances the focused task this much
   const VISIT_COOLDOWN = 90; // seconds between ordinary visits to the same neighbor
@@ -77,7 +78,7 @@
   function fresh() {
     return {
       version: 2, revision: REVISION,
-      started: false, name: 'Jacob', coat: '#6e9275',
+      started: false, resting: false, tutorial: 0, name: 'Jacob', coat: '#6e9275',
       sound: true, reducedMotion: false, quality: 'auto', clock: 'local',
       city: 0, chapters: 0, legacy: 0, plants: [],
       xp: 15, total: 15, run: 15, jp: 0, culture: 0, bonds: 0,
@@ -210,12 +211,14 @@
     const st = s.stations[i];
     if (!st || !st.level) return false;
     s.focus = i;
+    s.resting = false;
     s.stations.forEach((other, j) => { other.running = other.level > 0 && (other.auto || j === i); });
     return true;
   }
   function resume(s) {
     if (!s.stations[s.focus]?.level) s.focus = 0;
-    s.stations.forEach((st, i) => { st.running = s.started && st.level > 0 && (st.auto || i === s.focus); });
+    // While resting (the very start of a new life) only routines run.
+    s.stations.forEach((st, i) => { st.running = s.started && st.level > 0 && (st.auto || (i === s.focus && !s.resting)); });
   }
   function earn(s, amount) { s.xp += amount; s.total += amount; s.run += amount; }
   function credit(s, i, count) {
@@ -228,7 +231,7 @@
 
   // Tapping helps with the actual task: it advances the focused activity, nothing else.
   function assist(s) {
-    if (!s.started) return { xp: 0, seconds: 0 };
+    if (!s.started || s.resting) return { xp: 0, seconds: 0 };
     const i = s.focus, st = s.stations[i];
     if (!st?.level) return { xp: 0, seconds: 0 };
     st.progress += HELP_SECONDS;
@@ -546,6 +549,9 @@
     s.coat = ['#6e9275', '#648ca8', '#b98165', '#9b83ab'].includes(raw.coat) ? raw.coat : '#6e9275';
     s.name = String(raw.name || 'Friend').slice(0, 24);
     s.started = !!raw.started;
+    s.resting = s.started && !!raw.resting;
+    // Saves from before the tutorial existed have clearly found their feet.
+    s.tutorial = Number.isInteger(raw.tutorial) ? Math.max(0, Math.min(TUTORIAL_DONE, raw.tutorial)) : s.started ? TUTORIAL_DONE : 0;
     s.sound = !!raw.sound;
     s.reducedMotion = !!raw.reducedMotion;
     s.quality = raw.quality === 'low' ? 'low' : 'auto';
@@ -592,6 +598,7 @@
     const s = fresh();
     if (old?.version !== 1) return s;
     s.started = !!old.started;
+    s.tutorial = TUTORIAL_DONE;
     s.name = String(old.name || 'Jacob').slice(0, 24);
     s.jp = Math.max(0, Number(old.study) || 0);
     s.culture = Math.max(0, Number(old.culture) || 0);
@@ -607,7 +614,7 @@
   }
 
   const api = {
-    TUNE, REVISION, OFFLINE_CAP, HELP_SECONDS, VISIT_COOLDOWN,
+    TUNE, REVISION, TUTORIAL_DONE, OFFLINE_CAP, HELP_SECONDS, VISIT_COOLDOWN,
     JOURNEY, CONTENT, ACTIVITIES, CITIES, THRESHOLDS, LANGUAGE_NAMES, TRAINING_TIME, LOCAL_PLACE, BOOSTS, GOALS, MAX_LEVEL,
     fresh, language, gifts, global, projectBonus, cultureBonus, bondsBonus, marks, nextMark, duration, placeBoost, payout, support, rate,
     notebook, notebookBonus, levelFactor, sideGain, accessible, price, quantity, buy, autoCost, automate, start, resume, earn, assist, tap, step, upgrade,

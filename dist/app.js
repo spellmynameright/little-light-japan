@@ -290,8 +290,9 @@
     $('#pc-fill').style.width = (st.running ? st.progress / dur : 0) * 100 + '%';
     $('#pc-yield').textContent = '+' + num(E.payout(s, i)) + ' XP · +' + small(E.sideGain(s, i)) + ' ' + PLACES[i].result;
     const focused = i === s.focus;
-    $('#pc-verb').textContent = focused ? secs(Math.max(0, dur - st.progress)) + ' · ' + PLACES[i].verb : st.auto ? 'Your routine is running here' : 'Tap Help to work here';
-    $('#pc-help-sub').textContent = focused ? 'Tap to help · +' + E.HELP_SECONDS + 's' : 'Go here and help';
+    $('#pc-verb').textContent = focused && s.resting ? 'Waiting to begin' : focused ? secs(Math.max(0, dur - st.progress)) + ' · ' + PLACES[i].verb : st.auto ? 'Your routine is running here' : 'Tap Help to work here';
+    $('#pc-help-sub').textContent = focused && s.resting ? 'Tap to start' : focused ? 'Tap to help · +' + E.HELP_SECONDS + 's' : 'Go here and help';
+    $('#pc-help span').textContent = focused && s.resting ? 'Begin studying' : PLACES[i].action;
     $('#pc-qty').textContent = buyMode === 'max' ? '×' + n : buyMode === '10' ? '×10' : '';
     $('#pc-price').textContent = st.level >= E.MAX_LEVEL ? 'Fully improved' : num(price) + ' XP';
     $('#pc-improve').disabled = st.level >= E.MAX_LEVEL || n < 1 || s.xp < price;
@@ -315,6 +316,16 @@
   function helpTap() {
     if (!s.started) return;
     if (selected !== s.focus && s.stations[selected].level) { selectPlace(selected); return; }
+    if (s.resting) {
+      advance();
+      E.start(s, s.focus);
+      Sound.unlock();
+      Sound.play('open');
+      log('I sat down at my desk and began learning the words for a new life.', 'lesson');
+      save();
+      render();
+      return;
+    }
     if (Date.now() - lastTap < 80) return;
     lastTap = Date.now();
     Sound.unlock();
@@ -775,7 +786,8 @@
         <p class="aside">Saved automatically in this browser. Your current place and routines keep going for up to 8 hours while you are away. Backups move your game between devices.</p>
         <div class="row"><button class="btn-quiet" id="opt-export">Export backup</button><button class="btn-quiet" id="opt-import">Import backup</button></div>
         <p class="aside">${num(s.total)} lifetime XP · chapter ${s.chapters + 1} · ${s.learned.length} words · ${Math.floor(s.time / 3600)}h ${Math.floor((s.time % 3600) / 60)}m of life in Japan${storageOK ? '' : ' · <b>Storage unavailable — export a backup.</b>'}</p>
-        <div class="row"><button class="btn-quiet" id="opt-help">How to play</button><button class="btn-quiet danger" id="opt-reset">Start over…</button></div>
+        <div class="row"><button class="btn-quiet" id="opt-help">How to play</button><button class="btn-quiet" id="opt-tour">Replay the welcome</button></div>
+        <div class="row"><button class="btn-quiet danger" id="opt-reset">Start over…</button></div>
         <p class="aside credits">A Little Light · made by Jacob Trimm with Claude · 3D by Three.js (MIT licence) · neighborhoods and people are fictional.</p>`,
       bind: el => {
         el.querySelector('#profile-name').onchange = e => { s.name = e.target.value.trim().slice(0, 24) || 'Friend'; save(); };
@@ -787,6 +799,7 @@
         el.querySelector('#opt-export').onclick = exportSave;
         el.querySelector('#opt-import').onclick = () => $('#import-file').click();
         el.querySelector('#opt-help').onclick = () => { closeModal(); help(); };
+        el.querySelector('#opt-tour').onclick = () => { closeModal(); selectTab('town'); window.App.tutorial?.replay(); };
         el.querySelector('#opt-reset').onclick = () => setModal(`<h2>Start from the beginning?</h2><p>This replaces your current life in Japan. Export a backup first if you want to keep it.</p><div class="row"><button class="btn-quiet" id="keep">Keep my game</button><button class="btn-primary danger" id="reset">Start over</button></div>`, el2 => {
           el2.querySelector('#keep').onclick = () => { closeModal(); settings(); };
           el2.querySelector('#reset').onclick = () => {
@@ -870,11 +883,10 @@
       html: `${portrait('player', 'intro-portrait')}
         <small class="kicker">A Little Light · 小さな光</small>
         <h2>You’ve arrived in Tokyo.</h2>
-        <p class="story-text">A small apartment in Hanamimachi. A handful of words. A street full of people you haven’t met yet.</p>
-        <p>Your character studies, shops, shares tea and cooks — and keeps going on their own. Tap to help with whatever is in front of them. Learn the language, make friends, and someday entrust a church to the people who belong here.</p>
+        <p class="story-text">A small apartment in Hanamimachi. A suitcase, a key on a paper tag, and a handful of words. A street full of people you haven’t met yet.</p>
         <label for="your-name">Your name</label><input id="your-name" maxlength="24" value="${esc(s.name)}" autocomplete="off">
         <div class="coats" role="group" aria-label="Jacket colour">${COATS.map(([c, n]) => `<button data-coat="${c}" style="--c:${c}" class="${s.coat === c ? 'chosen' : ''}" aria-label="${n} jacket"></button>`).join('')}</div>
-        <button class="btn-primary" id="begin">Unpack and start studying</button>`,
+        <button class="btn-primary" id="begin">Unpack</button>`,
       bind: el => {
         el.querySelectorAll('[data-coat]').forEach(b => b.onclick = () => { s.coat = b.dataset.coat; el.querySelectorAll('[data-coat]').forEach(x => x.classList.toggle('chosen', x === b)); });
         el.querySelector('#begin').onclick = () => {
@@ -883,12 +895,15 @@
           s.sound = true;
           Sound.enabled = true;
           Sound.play('city');
-          E.start(s, 0);
+          // A quiet start: nothing runs until Mrs. Sato has shown you your desk.
+          s.focus = 0;
+          s.resting = true;
+          s.tutorial = 0;
+          E.resume(s);
           last = Date.now();
-          log('I arrived with a suitcase and began learning the words for a new life.', 'city');
+          log('I arrived with a suitcase and a handful of words.', 'city');
           save();
           closeModal();
-          toast('Your character is studying. Tap Help to write the next kana.');
         };
       }
     });
@@ -999,7 +1014,7 @@
     sound: name => Sound.play(name)
   };
   window.App = {
-    get s() { return s; }, E, C, J, PLACES, num, small, secs, esc, toast, portrait, seal, chips, phrase, local, personReady,
+    get s() { return s; }, selected: () => selected, E, C, J, PLACES, num, small, secs, esc, toast, portrait, seal, chips, phrase, local, personReady,
     openModal, closeModal, setModal, save, advance, render, selectTab, selectPlace,
     visit, mentor, talkLocal, appointLocal, lesson, situation, speak, projectAction, entrust, finale, help, panels: {}
   };
@@ -1021,6 +1036,7 @@
     hud();
     syncCard();
     if (tab !== 'town') window.App.panels.sync?.[tab]?.();
+    window.App.tutorial?.tick();
   }
   setInterval(tick, 100);
   setInterval(() => { if (s.started) save(); }, 4000);

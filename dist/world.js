@@ -252,7 +252,7 @@ function updatePlayer(state, dt, t, now) {
     if (!player.heldSet) { setHeld(player, HELD[state.focus], materials.solid); player.heldSet = true; }
     face(player, places[state.focus].group.userData.facing, dt);
   } else player.heldSet = false;
-  const working = state.started && !walking;
+  const working = state.started && !walking && !state.resting;
   const hop = now < hopUntil ? Math.sin((hopUntil - now) / 260 * Math.PI) * 0.08 : 0;
   animate(player, motion ? t : 0, walking ? 'walk' : working ? 'work:' + WORK[state.focus] : 'idle', now < hopUntil ? 2.2 : 1);
   player.body.position.y += hop;
@@ -565,6 +565,7 @@ function personPin(id) {
   if (personPins[id]) return personPins[id];
   const b = document.createElement('button');
   b.className = 'person-pin';
+  b.dataset.person = id;
   b.addEventListener('click', e => { e.stopPropagation(); bridge()?.visit(id); });
   overlay.append(b);
   personPins[id] = b;
@@ -598,7 +599,7 @@ function updateOverlay(state) {
   // The helping ring above your character.
   const head = player.root.position.clone().add(new THREE.Vector3(0, 1.45, 0));
   const s = toScreen(head);
-  const working = state.started && !player.path.length;
+  const working = state.started && !player.path.length && !state.resting;
   mePin.hidden = !working;
   if (working) {
     const st = state.stations[state.focus];
