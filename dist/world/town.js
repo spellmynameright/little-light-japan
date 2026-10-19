@@ -124,7 +124,7 @@ function sideWindow(k, glow, x, y, z, w = 0.6, h = 0.5) {
 
 // The bones of a building. Width w (x), depth d (z), floors of height H.
 // Front is at +d/2. Returns heights for the caller to decorate.
-function walls(core, shell, glow, { w, d, floors = 1, wall, wood, cut = 0.42, H = 1.3, frontWindows = 2, sideWindows = 1, lattice = false, plinth = '#b7ad9a' }) {
+function walls(core, shell, glow, sglow, { w, d, floors = 1, wall, wood, cut = 0.42, H = 1.3, frontWindows = 2, sideWindows = 1, lattice = false, plinth = '#b7ad9a' }) {
   const top = floors * H;
   // Plinth and floor.
   core.box(w + 0.1, 0.12, d + 0.1, plinth, 0, 0, 0);
@@ -146,9 +146,9 @@ function walls(core, shell, glow, { w, d, floors = 1, wall, wood, cut = 0.42, H 
     for (let n = 0; n < frontWindows; n++) {
       const x = -w / 2 + (w / (frontWindows + 1)) * (n + 1) + (f === 0 ? 0.35 : 0);
       if (f === 0 && Math.abs(x) < 0.5) continue;
-      windowPane(shell, glow, x, y, d / 2 + 0.01, 0.6, 0.52, lattice);
+      windowPane(shell, sglow, x, y, d / 2 + 0.01, 0.6, 0.52, lattice);
     }
-    for (let n = 0; n < sideWindows; n++) sideWindow(shell, glow, w / 2 + 0.01, y, -d / 4 + n * 0.8);
+    for (let n = 0; n < sideWindows; n++) sideWindow(shell, sglow, w / 2 + 0.01, y, -d / 4 + n * 0.8);
     if (f > 0) shell.box(w + 0.06, 0.06, 0.16, shade(wall, -0.12), 0, 0.12 + f * H, d / 2 - 0.04);
   }
   // Back-wall windows on the inside, for the cutaway view.
@@ -171,9 +171,9 @@ function awning(shell, w, y, z, color, stripes = null) {
 const PLACES = [
   // 0 · Your apartment: a two-storey block with an outside steel stair.
   function apartment(K, style, level) {
-    const { core, shell, glow } = K, w = 3.6, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.6, d = 3.0;
     const wall = style.walls[0];
-    walls(core, shell, glow, { w, d, floors: 2, wall, wood: '#9a9690', frontWindows: 2 });
+    walls(core, shell, glow, sglow, { w, d, floors: 2, wall, wood: '#9a9690', frontWindows: 2 });
     // Upstairs walkway and railing, outside stair on the east side.
     shell.box(w + 0.2, 0.08, 0.7, '#9da3a4', 0, 1.42, d / 2 + 0.3);
     for (let i = 0; i <= 8; i++) shell.box(0.03, 0.45, 0.03, '#7f8686', -w / 2 + i * (w / 8), 1.5, d / 2 + 0.62);
@@ -208,16 +208,16 @@ const PLACES = [
 
   // 1 · The corner shop: deep awning, crates out front, living space above.
   function shop(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.8, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.8, d = 3.0;
     const wall = style.walls[1];
-    walls(core, shell, glow, { w, d, floors: 2, wall, wood: style.wood, frontWindows: 0 });
+    walls(core, shell, glow, sglow, { w, d, floors: 2, wall, wood: style.wood, frontWindows: 0 });
     // The shopfront is open (a big glass front) under the awning.
-    glow.cbox(2.6, 0.75, 0.05, GLASS, -0.3, 0.75, d / 2 + 0.02);
+    sglow.cbox(2.6, 0.75, 0.05, GLASS, -0.3, 0.75, d / 2 + 0.02);
     shell.cbox(2.7, 0.06, 0.07, FRAME, -0.3, 1.14, d / 2 + 0.04);
     door(shell, 1.35, d / 2, '#c4b79c');
     if (open) awning(shell, 3.9, 1.45, d / 2, '#6f9a7a', '#f1ead6');
     else shell.cbox(2.7, 0.9, 0.06, SHUTTER, -0.3, 0.7, d / 2 + 0.06);
-    for (let f = 0; f < 2; f++) windowPane(shell, glow, -1 + f * 1.6, 1.95, d / 2 + 0.01, 0.6, 0.5);
+    for (let f = 0; f < 2; f++) windowPane(shell, sglow, -1 + f * 1.6, 1.95, d / 2 + 0.01, 0.6, 0.5);
     shell.gable(w, d, 0.8, style.roofs[1], 0, 2.72, 0);
     if (open) {
       // Crates of vegetables on the pavement.
@@ -240,12 +240,12 @@ const PLACES = [
 
   // 2 · Café Hidamari: a wooden kissaten with a big window and hanging lamps.
   function cafe(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.4, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.4, d = 3.0;
     const wall = style.walls[2];
-    walls(core, shell, glow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 0, H: 1.45 });
+    walls(core, shell, glow, sglow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 0, H: 1.45 });
     // Dark wood front with a wide window.
     shell.box(w, 1.45, 0.06, style.wood, 0, 0.12, d / 2 + 0.01);
-    glow.cbox(1.7, 0.8, 0.05, GLASS, -0.6, 0.85, d / 2 + 0.05);
+    sglow.cbox(1.7, 0.8, 0.05, GLASS, -0.6, 0.85, d / 2 + 0.05);
     shell.cbox(1.8, 0.06, 0.08, '#d9c39c', -0.6, 0.42, d / 2 + 0.06);
     door(shell, 1.0, d / 2 + 0.03, '#c9a374', open ? '#a65a4a' : null);
     if (!open) shell.cbox(1.75, 0.82, 0.06, SHUTTER, -0.6, 0.85, d / 2 + 0.09);
@@ -279,9 +279,9 @@ const PLACES = [
 
   // 3 · The community hall: white walls, wide windows, a notice board.
   function hall(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.8, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.8, d = 3.0;
     const wall = style.walls[3];
-    walls(core, shell, glow, { w, d, floors: 1, wall, wood: '#b0a690', frontWindows: 3, H: 1.4 });
+    walls(core, shell, glow, sglow, { w, d, floors: 1, wall, wood: '#b0a690', frontWindows: 3, H: 1.4 });
     door(shell, 0.0, d / 2, '#9fb0b2');
     shell.box(w + 0.3, 0.1, d + 0.3, '#9aa29c', 0, 1.52, 0);
     shell.box(w - 0.4, 0.22, d - 0.4, shade(style.roofs[3], 0.1), 0, 1.62, 0);
@@ -306,9 +306,9 @@ const PLACES = [
 
   // 4 · Everyone's dining room: a house with a noren and the big shared table.
   function kitchen(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.8, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.8, d = 3.0;
     const wall = style.walls[4];
-    walls(core, shell, glow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 2, H: 1.4, lattice: true });
+    walls(core, shell, glow, sglow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 2, H: 1.4, lattice: true });
     door(shell, 0.0, d / 2, '#b38b62', open ? '#3f5f7a' : null);
     shell.gable(w, d, 0.9, style.roofs[4], 0, 1.52, 0);
     // A chimney for cooking steam.
@@ -335,10 +335,10 @@ const PLACES = [
 
   // 5 · The bookshop and reading room.
   function bookshop(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.6, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.6, d = 3.0;
     const wall = style.walls[5];
-    walls(core, shell, glow, { w, d, floors: 2, wall, wood: style.wood, frontWindows: 2 });
-    glow.cbox(1.6, 0.8, 0.05, GLASS, -0.7, 0.8, d / 2 + 0.03);
+    walls(core, shell, glow, sglow, { w, d, floors: 2, wall, wood: style.wood, frontWindows: 2 });
+    sglow.cbox(1.6, 0.8, 0.05, GLASS, -0.7, 0.8, d / 2 + 0.03);
     shell.cbox(1.7, 0.06, 0.07, FRAME, -0.7, 1.22, d / 2 + 0.05);
     door(shell, 1.05, d / 2, '#7d8f8a');
     if (!open) shell.cbox(1.65, 0.85, 0.06, SHUTTER, -0.7, 0.8, d / 2 + 0.07);
@@ -404,13 +404,13 @@ const PLACES = [
 
   // 7 · Everyone's house: an old wooden house with a tiled roof and a veranda.
   function house(K, style, level, open) {
-    const { core, shell, glow } = K, w = 3.9, d = 3.0;
+    const { core, shell, glow, sglow } = K, w = 3.9, d = 3.0;
     const wall = style.walls[7];
-    walls(core, shell, glow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 0, sideWindows: 1, H: 1.4, plinth: '#9e927c' });
+    walls(core, shell, glow, sglow, { w, d, floors: 1, wall, wood: style.wood, frontWindows: 0, sideWindows: 1, H: 1.4, plinth: '#9e927c' });
     // Sliding shoji front (glows warmly at night) or closed shutters.
     if (open) {
       for (let i = 0; i < 4; i++) {
-        glow.cbox(0.7, 0.9, 0.05, '#efe6cc', -1.3 + i * 0.8, 0.62, d / 2 + 0.02);
+        sglow.cbox(0.7, 0.9, 0.05, '#efe6cc', -1.3 + i * 0.8, 0.62, d / 2 + 0.02);
         for (let r = 0; r < 4; r++) shell.cbox(0.7, 0.02, 0.06, style.wood, -1.3 + i * 0.8, 0.22 + r * 0.27, d / 2 + 0.04);
         shell.cbox(0.03, 0.9, 0.07, style.wood, -1.3 + i * 0.8, 0.62, d / 2 + 0.04);
       }
@@ -482,7 +482,7 @@ function outdoorProps(k, glow, i, level, style, rnd) {
 // Builds one place as a THREE.Group positioned on its plot.
 export function buildPlace(i, level, city, materials) {
   const style = STYLES[city];
-  const K = { core: new Kit(), shell: new Kit(), glow: new Kit() };
+  const K = { core: new Kit(), shell: new Kit(), glow: new Kit(), sglow: new Kit() };
   const open = level > 0;
   const info = PLACES[i](K, style, level, open);
   const rnd = seeded(i * 31 + city * 7);
@@ -500,6 +500,9 @@ export function buildPlace(i, level, city, materials) {
   if (core) g.add(core);
   if (shell) { shell.userData.shell = true; g.add(shell); }
   if (glow) { glow.userData.glow = true; glow.castShadow = false; g.add(glow); }
+  // Windows set in the front walls light up too, and fade away with the walls.
+  const sglow = K.sglow.build(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, transparent: true }));
+  if (sglow) { sglow.userData.glow = true; sglow.userData.shellGlow = true; sglow.castShadow = false; g.add(sglow); }
   // The building's sign.
   const sign = SIGNS[i];
   if (i === 6) {

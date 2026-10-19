@@ -101,7 +101,7 @@ function syncPlaces(state) {
     const group = buildPlace(i, state.stations[i].level, state.city, materials);
     scene.add(group);
     const shell = group.children.find(o => o.userData.shell);
-    const glow = group.children.find(o => o.userData.glow);
+    const glow = group.children.filter(o => o.userData.glow);
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.2), new THREE.MeshBasicMaterial({ map: poolTexture, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     pool.rotation.x = -Math.PI / 2;
     const c = plotCenter(i);
@@ -462,9 +462,9 @@ function applyLight(state, now) {
     shadowDirty = true;
   }
   places.forEach((p, i) => {
-    if (!p?.glow) return;
+    if (!p?.glow?.length) return;
     const owned = state.stations[i].level > 0;
-    p.glow.material.color.copy(WHITE).lerp(owned ? WARM : DIM, d.night);
+    for (const gm of p.glow) gm.material.color.copy(WHITE).lerp(owned ? WARM : DIM, d.night);
     p.pool.material.opacity = owned ? d.night * 0.55 : 0;
   });
   for (const g of [env, landmarks]) g?.children.forEach(o => { if (o.userData.glow) o.material.color.copy(WHITE).lerp(WARM, d.night); });
@@ -529,6 +529,7 @@ function updateCamera(state, dt) {
     m.opacity = p.fade;
     m.depthWrite = p.fade > 0.6;
     p.shell.visible = p.fade > 0.03;
+    for (const gm of p.glow) if (gm.userData.shellGlow) { gm.material.opacity = p.fade; gm.visible = p.fade > 0.03; gm.material.depthWrite = p.fade > 0.6; }
     p.shell.castShadow = p.fade > 0.5;
     if (p.bounce > 0) {
       p.bounce = Math.max(0, p.bounce - dt * 1.6);
@@ -616,7 +617,8 @@ function updateOverlay(state) {
       pin.innerHTML = (info?.portrait ? `<span class="portrait portrait-${p.id}"></span>` : `<span class="seal" style="--accent:${info?.color}">${info?.seal || '人'}</span>`) + `<span class="pin-badge">${info?.badge || '✦'}</span>`;
       pin.setAttribute('aria-label', info?.label || 'Talk');
     }
-    const q = toScreen(p.root.position.clone().add(new THREE.Vector3(0, 1.35, 0)));
+    pin.classList.toggle('mini', town);
+    const q = toScreen(p.root.position.clone().add(new THREE.Vector3(0, town ? 1.1 : 1.35, 0)));
     pin.style.transform = `translate(${q.x}px, ${q.y}px) translate(-50%, -100%)`;
   }
 }
