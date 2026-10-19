@@ -1,4 +1,80 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eef1e5"><meta name="description" content="A character-led idle life in Japan. Explore a miniature neighborhood, learn Japanese, build relationships, and entrust growing churches to local elders."><title>A Little Light · Life in Japan</title><link rel="stylesheet" href="style.css?v=5"></head><body><div id="game"><header class="game-header"><a class="brand" href="#"><span class="brand-mark">灯</span><span>A Little Light<small>A LIFE IN JAPAN</small></span></a><div class="resource xp-resource"><span>✦</span><div><b id="xp">15</b><small id="income">Experience</small></div></div><button class="resource" id="language-shortcut"><span>あ</span><div><b id="jp-stat">0</b><small>Japanese</small></div></button><div class="resource"><span>❀</span><div><b id="culture-stat">0</b><small>Culture</small></div></div><div class="resource"><span>♡</span><div><b id="bonds-stat">0</b><small>Connection</small></div></div><button id="settings" class="icon-button" title="Settings" aria-label="Settings and save">⚙</button></header>
-<section class="journey-strip"><span class="journey-emblem">✦</span><div><small id="journey-detail"></small><strong id="journey-summary"></strong><div class="journey-progress"><i id="journey-fill"></i></div></div><button id="journey-open">Your journey →</button></section><div class="game-layout"><section id="world-view" class="world-view" aria-label="Interactive three-dimensional neighborhood"><canvas id="world-canvas" aria-label="Click your character to help with their activity. Select buildings to visit."></canvas><div id="fallback-town" hidden><img src="assets/neighborhood.png" alt="Your neighborhood"><div class="fallback-person"><i></i><b></b><span></span></div></div><div class="world-top"><div class="location-badge"><span>✧</span><div><strong id="city-name">Tokyo</strong><small id="district-name">Hanamimachi · Church plant 1</small></div></div><div class="view-buttons"><button id="expand-world" title="Expand neighborhood" aria-label="Expand neighborhood" aria-pressed="false">⛶</button><button id="camera-mode" title="Toggle town and close views" aria-label="Toggle town view">⌖</button><button id="sound" title="Toggle sound" aria-label="Toggle sound">♫</button></div></div><div class="world-help" id="world-help">Choose a place. Watch your life grow.</div><div class="camera-tools" aria-label="Camera controls"><button id="rotate-left" title="Turn view left" aria-label="Turn view left">↶</button><button id="rotate-right" title="Turn view right" aria-label="Turn view right">↷</button><button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button><button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button></div><button id="meet-neighbor" class="meet-neighbor"></button><button id="quick-goal" class="quick-goal" hidden></button><div id="place-labels" class="place-labels"></div><button id="character-bubble" class="character-bubble" title="Help with the current task"><span id="bubble-text">あ</span><small id="bubble-time">3.0s</small></button><div id="world-rewards" aria-live="polite"></div><div class="character-caption"><span class="character-dot"></span><b id="character-name">Jacob</b><span id="character-activity">Studying Japanese</span></div><div class="quick-controls"><button id="quick-assist"><span id="quick-assist-label">Write the next kana</span><small id="quick-assist-detail">3.0s</small><span class="quick-track"><i id="quick-progress"></i></span></button><button id="quick-improve"><span id="quick-improve-label">Improve</span><small id="quick-improve-detail">12 XP</small></button></div><div class="activity-dock" id="activity-dock" aria-label="Choose an activity"></div></section>
-<aside class="activity-panel" id="activity-panel"><div class="context-heading"><span class="eyebrow" id="place-category">YOUR APARTMENT</span><h1 id="place-title">A few words open doors.</h1><p id="place-purpose">Study Japanese to understand your neighbors and find your way around town.</p></div><div id="activity-content"></div><div class="objective"><span class="eyebrow" id="goal-label">NEXT: YOUR FIRST GREETINGS</span><strong id="goal-text">Finish your first study session</strong><div class="objective-bottom"><span id="goal-progress">0 / 1</span><button id="goal-claim">+50 XP</button></div></div><div class="panel-foot"><span id="saved">Saved on this device</span><button id="help">How to play</button></div></aside></div>
-<nav class="bottom-nav" aria-label="Game views"><button class="active" data-tab="life"><span>⌂</span>Neighborhood</button><button data-tab="japanese"><span>あ</span>Japanese</button><button data-tab="neighbors"><span>♡</span>People</button><button data-tab="boosts"><span>↗</span>Equipment</button><button data-tab="chapter"><span>✧</span>Your journey</button></nav><section id="drawer" class="drawer" hidden><div class="drawer-top"><span id="drawer-title">Japanese</span><button id="close-drawer" aria-label="Return to neighborhood">×</button></div><div id="panel"></div></section></div><div id="toast" role="status" aria-live="polite"></div><div id="modal-root"></div><input id="import-file" type="file" accept="application/json" hidden><script src="journey.js?v=5"></script><script src="engine.js?v=5"></script><script src="content.js?v=5"></script><script src="app.js?v=5"></script><script type="module" src="world.js?v=5"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eef1e6">
+  <meta name="description" content="A gentle idle life game: live in a Japanese neighborhood, learn the language, share meals and stories, and raise up local leaders in five cities.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Little Light">
+  <title>A Little Light · Life in Japan</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Zen+Maru+Gothic:wght@500;700&family=Shippori+Mincho:wght@500;700&display=swap">
+  <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body data-tab="town">
+  <div id="app">
+    <header class="hud">
+      <button class="hud-xp" id="hud-xp" aria-label="Experience">
+        <span class="hud-mark">✦</span>
+        <span class="hud-xp-text"><b id="xp">15</b><small id="rate">+0 / sec</small></span>
+      </button>
+      <div class="hud-stats">
+        <button class="chip" id="chip-jp" data-tab="learn" aria-label="Japanese insight"><span class="chip-icon">あ</span><b id="jp">0</b></button>
+        <span class="chip" aria-label="Cultural understanding"><span class="chip-icon">❀</span><b id="culture">0</b></span>
+        <button class="chip" id="chip-bonds" data-tab="people" aria-label="Connection"><span class="chip-icon">♡</span><b id="bonds">0</b></button>
+      </div>
+      <button class="icon-btn" id="settings-btn" aria-label="Settings and save">⚙</button>
+    </header>
+
+    <main class="stage">
+      <section id="world-view" class="world-view" aria-label="Your neighborhood">
+        <canvas id="world-canvas"></canvas>
+        <div id="world-overlay" class="world-overlay"></div>
+        <div id="fallback-town" class="fallback-town" hidden><img src="assets/neighborhood.webp" alt="An illustrated Japanese neighborhood in spring"></div>
+        <div class="world-top">
+          <div class="where">
+            <b id="city-name">Tokyo</b>
+            <small id="where-line">Hanamimachi · spring</small>
+          </div>
+          <button id="view-toggle" class="icon-btn view-toggle" aria-label="See the whole neighborhood" title="See the whole neighborhood">⤢</button>
+        </div>
+        <button id="goal-chip" class="goal-chip" type="button">
+          <span class="goal-kicker" id="goal-kicker">A purpose for today</span>
+          <span class="goal-title" id="goal-title"></span>
+          <span class="goal-progress"><i id="goal-fill"></i></span>
+        </button>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </section>
+
+      <section id="place-card" class="place-card" aria-live="polite"></section>
+
+      <section id="panel" class="panel" hidden>
+        <div class="panel-inner" id="panel-inner"></div>
+      </section>
+    </main>
+
+    <nav class="tabs" aria-label="Game views">
+      <button data-tab="town" class="active"><span>⌂</span>Town</button>
+      <button data-tab="learn"><span>あ</span>Learn<i class="tab-dot" id="dot-learn" hidden></i></button>
+      <button data-tab="people"><span>♡</span>People<i class="tab-dot" id="dot-people" hidden></i></button>
+      <button data-tab="journey"><span>✧</span>Journey<i class="tab-dot" id="dot-journey" hidden></i></button>
+    </nav>
+  </div>
+  <div id="modal-root"></div>
+  <input id="import-file" type="file" accept="application/json" hidden>
+  <script src="journey.js?v=6"></script>
+  <script src="content.js?v=6"></script>
+  <script src="engine.js?v=6"></script>
+  <script src="audio.js?v=6"></script>
+  <script src="app.js?v=6"></script>
+  <script src="panels.js?v=6"></script>
+  <script type="module" src="world.js?v=6"></script>
+</body>
+</html>

@@ -1,91 +1,1017 @@
-'use strict';
-const E=Idle,C=Content,$=q=>document.querySelector(q),$$=q=>[...document.querySelectorAll(q)],KEY='little-light-japan-v2';
-const escape=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const names=['New arrival','First greetings','Finding your way','At the table','Lending a hand','Shared understanding','Feeling at home','Lifelong learner'];
-const people=[{id:'sato',name:'Mrs. Sato',role:'Your neighbor',icon:'里',color:'#98a57b',jp:0},{id:'emi',name:'Emi',role:'Café owner',icon:'恵',color:'#c5947a',jp:20},{id:'haru',name:'Haru',role:'Bookshop assistant',icon:'春',color:'#8b9faf',jp:60},{id:'kenji',name:'Kenji',role:'Community gardener',icon:'健',color:'#b7a16b',jp:130},{id:'aiko',name:'Aiko',role:'Local church host',icon:'愛',color:'#a593ad',jp:20}];
-const places=[
-{category:'YOUR APARTMENT',title:'A few words open doors.',purpose:'Practice Japanese so you can read the signs, order food, and get to know the people around you.',action:'Write the next kana',verb:'Studying Japanese',object:'Desk & study materials',improve:'Improve the study space',auto:'Build a daily study habit',result:'Japanese insight',bubble:'あ',room:'Apartment'},
-{category:'THE CORNER SHOP',title:'Learn the everyday.',purpose:'Shop locally, sort the recycling, and learn the routines that help you care for the place you live.',action:'Read the next label',verb:'Shopping & learning local routines',object:'Errand route',improve:'Learn a better route',auto:'Plan a regular errand route',result:'Cultural understanding',bubble:'袋',room:'Market'},
-{category:'EMI’S CAFÉ',title:'Become a familiar face.',purpose:'Practice greetings over tea. Learn names, remember stories, and make time for friendship.',action:'Practice a greeting',verb:'Sharing tea with a neighbor',object:'Hospitality',improve:'Make more time for conversation',auto:'Arrange a regular tea gathering',result:'Connection',bubble:'お茶',room:'Café'},
-{category:'LANGUAGE EXCHANGE',title:'Teach a little. Learn a lot.',purpose:'Help neighbors practice English while they help you understand Japanese. Both sides have something to give.',action:'Practice the next phrase',verb:'Learning with language partners',object:'Learning materials',improve:'Prepare better lessons',auto:'Organize a weekly exchange group',result:'Japanese insight',bubble:'話',room:'Classroom'},
-{category:'THE SHARED KITCHEN',title:'There is room at the table.',purpose:'Prepare meals and open a table to the neighborhood. A meal is an invitation to belong.',action:'Prepare the next plate',verb:'Preparing a shared meal',object:'Community kitchen',improve:'Equip the kitchen',auto:'Share the cooking rota',result:'Connection',bubble:'食',room:'Kitchen'},
-{category:'THE READING ROOM',title:'Stories are windows.',purpose:'Read with children and neighbors, share questions, and discover what matters to one another.',action:'Read the next page',verb:'Reading with the neighborhood',object:'Book collection',improve:'Grow the neighborhood library',auto:'Invite Haru to host story evenings',result:'Cultural understanding',bubble:'本',room:'Library'},
-{category:'THE COMMUNITY GARDEN',title:'Tend something together.',purpose:'Grow vegetables with your neighbors. Share the work, the waiting, and eventually the harvest.',action:'Water the next seedling',verb:'Tending the garden with Kenji',object:'Garden beds',improve:'Improve the garden beds',auto:'Form a neighborhood garden team',result:'Cultural understanding',bubble:'芽',room:'Garden'},
-{category:'THE FELLOWSHIP HOUSE',title:'A church with an open door.',purpose:'Make room for prayer, shared meals, honest questions, and neighbors caring for one another.',action:'Prepare a place for someone',verb:'Preparing the fellowship house',object:'Fellowship house',improve:'Make more room for the community',auto:'Share the life of the house',result:'Connection',bubble:'灯',room:'Fellowship'}];
-let s=E.fresh(),tab='life',selected=0,buyMode='1',quiz=null,last=Date.now(),toastTimeout,lastTap=0,audioCtx,storageOK=true,migrated=false,previousFocus,returning=false;
-try{const raw=localStorage.getItem(KEY);if(raw){const parsed=JSON.parse(raw);s=E.hydrate(parsed);returning=parsed.revision!==5;}else{const old=localStorage.getItem('little-light-japan-v1');if(old){s=E.migrate(JSON.parse(old));migrated=true;returning=true;}}}catch{storageOK=false;}
-s.revision=5;s.boostLeft=0;document.body.classList.toggle('reduce-motion',s.reducedMotion);selected=s.focus||0;E.resume(s);
-function advance(now=Date.now()){const dt=Math.max(0,(now-last)/1000);last=now;if(s.started)E.step(s,dt);}
-function save(){advance();s.last=last;try{localStorage.setItem(KEY,JSON.stringify(s));storageOK=true;$('#saved').textContent='Saved on this device';}catch{storageOK=false;$('#saved').textContent='Export a backup in Settings';}}
-function num(n){if(n<1000)return Math.floor(n).toLocaleString();const units=['K','M','B','T','Qa','Qi','Sx','Sp','Oc','No'];const k=Math.floor(Math.log10(n)/3);return k>units.length?n.toExponential(2):(n/Math.pow(1000,k)).toFixed(n/Math.pow(1000,k)<10?2:1).replace(/\.0$/,'')+units[k-1];}
-function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>$('#toast').classList.remove('show'),3000);}
-function log(text){s.journal.unshift({time:s.time,text});s.journal=s.journal.slice(0,50);}
-function modal(html,closable=true){previousFocus=document.activeElement;$('#modal-root').innerHTML=`<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true" aria-label="A Little Light">${closable?'<button class="modal-close" aria-label="Close">×</button>':''}${html}</section></div>`;$('.modal-close')?.addEventListener('click',closeModal);$('.modal-backdrop').onclick=e=>{if(closable&&e.target===e.currentTarget)closeModal();};$('.modal button, .modal input')?.focus();}
-function closeModal(){$('#modal-root').innerHTML='';if(previousFocus?.isConnected)previousFocus.focus();}
-function header(title,sub,extra=''){return `<div class="section-head"><div><h2>${title}</h2><p>${sub}</p></div>${extra}</div>`;}
-function makeQuiz(){const ready=C.WORDS.map((w,i)=>({w,i})).filter(x=>x.w[3]<=s.jp);let pool=ready.filter(x=>!s.learned.includes(x.i));if(!pool.length)pool=ready;const q=pool[Math.floor(Math.random()*pool.length)];quiz={index:q.i,answers:[q.w[2],...C.WORDS.filter(w=>w[2]!==q.w[2]).sort(()=>Math.random()-.5).slice(0,2).map(w=>w[2])].sort(()=>Math.random()-.5),done:false,wrong:-1};}
-function japanese(){if(!quiz)makeQuiz();const w=C.WORDS[quiz.index];return situationPanel()+header('Make sense of the world.','Study runs in the background. Practice gives a useful head start.')+`<div class="content-grid"><div class="card"><span class="label">JAPANESE INSIGHT</span><div class="large-value" id="language-value"></div><h3 id="language-name"></h3><div class="wide-progress"><i id="language-progress"></i></div><div id="language-next" class="stat-caption"></div><p>Japanese reveals activity names, translates conversations, and unlocks the next parts of your neighborhood.</p><span class="status-pill" id="language-bonus"></span><p><b>${s.learned.length} / 28</b> words practiced.<br>First correct answer per word: <b>+5 insight</b> and <b>10 seconds of potential production</b> in XP. Reviews are always free.</p></div><div class="card lesson"><span class="label">WHAT DOES THIS MEAN?</span><div class="word" lang="ja">${w[0]}</div><div class="romaji">${w[1]} <button class="secondary" id="listen" style="padding:4px 8px;font-size:9px">▷ Listen</button></div><div class="options">${quiz.answers.map((a,i)=>`<button data-answer="${i}" class="${quiz.done&&a===w[2]?'correct':quiz.wrong===i?'wrong':''}" ${quiz.done?'disabled':''}>${a}</button>`).join('')}</div><div class="feedback">${quiz.done?'✓ '+w[2]+'. One more piece of the world opens up.':quiz.wrong>=0?'Not quite. Try again—there’s no penalty.':'No timer. Just a little practice.'}</div>${quiz.done?'<button class="primary full" style="margin-top:15px" id="next-question">Next word →</button>':''}</div></div><div class="word-list">${C.WORDS.map((w,i)=>`<div class="vocab ${s.jp<w[3]?'locked':''}"><div><b lang="ja">${w[0]}</b><small>${s.jp>=w[3]?w[1]:w[3]+' insight to translate'}</small></div><span>${s.jp>=w[3]?w[2]+(s.learned.includes(i)?' ✓':''):'···'}</span></div>`).join('')}</div><div class="tip">Meanings here are introductory, not exhaustive. Japanese audio uses your device’s installed voices. Written Japanese stays visible as translations become familiar.</div>`;}
-function neighbors(){return header('A circle that keeps growing.','Café visits and shared activities build connection. Each 25 connection adds 5% to all earnings.')+`<div class="neighbors">`+people.map(p=>{const read=s.stories[p.id]||0;return `<div class="card neighbor">${portrait(p.id,'neighbor-portrait')}<h3>${p.name}</h3><small>${p.role}</small><div class="hearts">${'♥'.repeat(read)+'♡'.repeat(4-read)}</div><button class="secondary full" data-person="${p.id}">Visit →</button><p>${read}/4 stories${read<4?" · next at "+[0,10,30,80][read]+" connection":" · partnership unlocked"}</p><small>${read===4?"✓ "+({sato:"Local guide: errands learn culture 20% faster",emi:"Tea host: café connection +20%",haru:"Reading partner: stories earn culture +20%",kenji:"Garden partner: garden culture +20%",aiko:"Shared hospitality: meals and fellowship connection +20%"})[p.id]:"Share all four stories to build a lasting partnership."}</small></div>`}).join('')+`</div><div class="tip">Relationships open stories at 0, 10, 30, and 80 connection. Visits add connection every 40 seconds. People have their own hopes, questions, and lives; friendship is worth growing for its own sake.</div>`;}
-function boosts(){return header('Tools for the work ahead.','Permanent this chapter. Earnings multipliers stack together.')+`<div class="upgrade-grid">`+E.BOOSTS.map(u=>`<div class="card upgrade-card"><span class="activity-icon" style="--accent:#95a57b">${u.icon}</span><div><h3>${u.name}</h3><p>${u.desc}</p></div><button class="primary" data-upgrade="${u.id}">${s.upgrades.includes(u.id)?'✓ Owned':num(u.cost)+' XP'}</button></div>`).join('')+'</div><div class="tip">Establish routines at each place in the neighborhood. These upgrades multiply production. Your Japanese, cultural understanding, connection, and chapter bonuses multiply every activity as well.</div>';}
-function chapter(){const city=E.CITIES[s.city];return projectPanel()+header('A church that can carry on.','Develop local elders, entrust the work, and begin again in another city.')+`<div class="card church-intro"><span class="label">CURRENT CHURCH PLANT · ${city.name.toUpperCase()}</span><h3>${city.district} fellowship</h3><p>A shared table becomes a praying community. Invest in local people who can teach, listen, and care for one another. When the church can carry its own life, it is time to go.</p><div class="requirements"><span class="requirement" id="handover-projects">3 community projects completed</span><span class="requirement" id="handover-table">Open table: level 10 + automated</span><span class="requirement" id="handover-elders">2 local elders appointed</span><span class="requirement" id="handover-xp">1M XP earned in this plant</span></div></div><div class="section-head" style="margin-top:25px"><div><h2>Share the leadership.</h2><p>Each leader develops through three mentoring stages. Appointment brings a lasting benefit while you work in this city.</p></div></div><div class="elders">${city.elders.map((name,i)=>`<div class="card elder"><div class="avatar" style="--accent:${['#96a07d','#92a7ab','#bba080'][i]}">${['聴','育','和'][i]}</div><h3>${name}</h3><p>${['A patient listener who notices who is missing.','A steady presence, already helping others grow.','A gracious host who makes room for difficult questions.'][i]}</p><span class="elder-gift">${["Teacher · +20% Japanese gains","Listener · +20% culture gains","Host · +20% connection gains"][i]}</span><span class="label" data-training="${i}"></span><div class="wide-progress"><i data-training-fill="${i}"></i></div><small class="stat-caption">Listening & character → shared care → teaching & discernment</small><button class="primary full" data-mentor="${i}" style="margin-top:15px"></button></div>`).join('')}</div><div class="content-grid" style="margin-top:22px"><div class="card prestige-card"><div class="prestige-icon">✧</div><span class="label">EXPERIENCE YOU CARRY FORWARD</span><div class="large-value" id="legacy-gain"></div><p>Each experience root adds <b>+50% permanent XP earnings</b>. This church also provides ongoing support worth <b>2% of its automated base production</b>, multiplied by your global bonuses.</p><p class="stat-caption" id="run-xp"></p><div class="preserve-list"><span>✓ Japanese</span><span>✓ Culture</span><span>✓ Friendships</span><span>✓ Established churches</span></div><button class="primary full" id="prestige-button">Entrust the church & choose a city →</button><p style="font-size:10px">In the next city, activity levels, automation, local elders, XP balance, shop upgrades, and milestone quests start fresh. Your learning, stories, and sending churches remain.</p></div><div class="card"><span class="label">A GROWING FAMILY OF CHURCHES</span><h3>${s.plants.length} established · ${num(E.support(s))} XP/sec support</h3><p>${num(s.legacy)} roots · ×${(1+s.legacy*.5).toFixed(1)} permanent experience bonus</p><div class="plant-map">${s.plants.length?s.plants.map((p,i)=>`<div class="plant-stop"><b>✧ ${E.CITIES[p.city].name}</b><small>Plant ${i+1} · Elders: ${p.elders.map(escape).join(', ')}</small><span>Entrusted to local leadership · +${num(p.support*E.global(s)*(s.boostLeft>0?2:1))} XP/sec</span></div>`).join(''):'<p>Your first church will appear here after you appoint elders and move on. It will keep supporting the next beginning.</p>'}<div class="plant-stop current"><b>● ${city.name}</b><small>${city.district} · You are here</small><span>${city.tag}</span></div></div></div></div><div class="tip">City bonuses and mentoring timers are game abstractions. Elders are entrusted with care of a community; their value is not measured in XP. The neighborhoods and local characters are fictional.</div><details class="journey-journal"><summary>Letters &amp; journal · ${s.journal.length} memories</summary>${s.journal.length?s.journal.map(entry=>`<article><small>${Math.floor(entry.time/60)} minutes into the journey</small><p>${escape(entry.text)}</p></article>`).join(''):'<p>Your shared stories and completed projects will appear here.</p>'}</details>`;}
+// A Little Light — the game interface.
+// Owns the save, the clock, the HUD, the place card, and every popup.
+// The Learn / People / Journey tabs are drawn by panels.js through window.App.
+(function () {
+  'use strict';
+  const E = window.Idle, C = window.Content, J = window.Journey, Sound = window.Sound;
+  const KEY = 'little-light-japan-v2';
+  const $ = q => document.querySelector(q), $$ = q => [...document.querySelectorAll(q)];
+  const esc = x => String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function answer(i){if(quiz.done)return;const w=C.WORDS[quiz.index];if(quiz.answers[i]!==w[2]){quiz.wrong=i;render();return;}quiz.done=true;if(!s.learned.includes(quiz.index)){s.learned.push(quiz.index);s.jp+=5;const reward=Math.max(25,E.rate(s,true)*10);E.earn(s,reward);toast('+5 Japanese · +'+num(reward)+' XP');}save();chime();render();}
-function listen(){if(!window.speechSynthesis){toast('Speech audio is unavailable on this device.');return;}const voice=speechSynthesis.getVoices().find(x=>x.lang.startsWith('ja'));if(!voice){toast('No Japanese voice installed. Follow the romaji pronunciation.');return;}const u=new SpeechSynthesisUtterance(C.WORDS[quiz.index][0]);u.lang='ja-JP';u.voice=voice;u.rate=.8;speechSynthesis.cancel();speechSynthesis.speak(u);}
-function visit(id){const p=people.find(x=>x.id===id);if(s.jp<p.jp||s.time-(s.visits[id]??-999)<40)return;s.visits[id]=s.time;s.bonds+=2;const stage=s.stories[id]||0,ready=stage<4&&s.bonds>=[0,10,30,80][stage],story=ready?C.stories[id][stage]:null;const identity=`<div class="dialogue-identity">${portrait(id)}<div><span class="label">${p.role.toUpperCase()}</span><h2>${p.name}</h2></div></div>`;if(!story){save();render();modal(identity+`<p>You pause for a little conversation. The words come more easily each time. Nothing momentous happens; that is part of what makes it feel like home.</p><p><b>+2 connection</b> · Every 25 gives +5% to all XP earnings.</p><button class="primary full" id="visit-done">Until next time →</button>`);$('#visit-done').onclick=closeModal;return;}save();render();modal(identity+`<h2>${story.title}</h2><div class="jp" lang="ja">${story.jp}<small>${s.jp>=story.at?story.en:'The words are still unfamiliar. The warmth is not.'}</small></div><p>${story.text}</p><div id="choices">${story.choices.map((c,i)=>`<button class="choice" data-choice="${i}">${c} →</button>`).join('')}</div>`);$$('[data-choice]').forEach(b=>b.onclick=()=>{if((s.stories[id]||0)!==stage)return;const i=Number(b.dataset.choice),xp=Math.max(40,E.rate(s,true)*15);s.stories[id]=stage+1;log(p.name+': '+story.title+'.');s.bonds+=3;E.earn(s,xp);log(story.responses[i]);save();$('#choices').innerHTML=`<p style="font-family:var(--serif);font-size:15px">${story.responses[i]}</p><div class="culture-note"><p>${story.note}</p></div><p><b>+3 connection · +${num(xp)} XP</b></p><button class="primary full" id="story-done">Carry this with you →</button>`;$('#story-done').onclick=()=>{closeModal();render();};chime();});}
-function prestige(){if(!E.ready(s))return;const gain=E.legacyGain(s),oldCity=E.CITIES[s.city],gift=E.JOURNEY.cities[s.city],last=E.gifts(s).length===4&&!E.gifts(s).includes(s.city);modal(`<span class="label">ENTRUST THE CHURCH</span><h2>The light stays on in ${oldCity.name}.</h2><p>${s.elders.map((e,i)=>e.appointed?oldCity.elders[i]:null).filter(Boolean).join(' and ')} will care for the church as local elders.</p><p>${gift.letter}</p><div class="culture-note"><b>You carry: ${gift.gift}</b><p>${gift.effect}</p><p>+${gain} experience roots · continued church support · all your language, culture, and friendships.</p></div><h3>${last?'The five-city journey is complete.':'Where will you go next?'}</h3><div class="destinations">${last?'<button class="destination" data-destination="-1"><b>Entrust this church and finish the journey →</b><span>Keep this neighborhood and continue playing after the ending.</span></button>':E.CITIES.map((city,i)=>i===s.city||E.gifts(s).includes(i)?'':`<button class="destination" data-destination="${i}"><b>${city.name} →</b><span>${E.JOURNEY.cities[i].theme}<br>${city.tag}</span></button>`).join('')}</div><p class="stat-caption">${last?'Your current neighborhood remains yours to enjoy.':'Activity levels, routines, local elders, XP balance, equipment, and projects begin fresh. Your learning and entrusted churches stay with you.'}</p><button class="secondary full" id="cancel-prestige" style="margin-top:16px">Stay here a little longer</button>`);$('#cancel-prestige').onclick=closeModal;$$('[data-destination]').forEach(b=>b.onclick=()=>{advance();const destination=Number(b.dataset.destination),gained=E.prestige(s,destination);if(!gained)return;log('The church in '+oldCity.name+' is entrusted to local elders. '+gift.letter);E.start(s,0);selected=0;save();closeModal();selectTab('life');if(E.complete(s))ending();else{toast('Welcome to '+E.CITIES[s.city].name+' · '+E.JOURNEY.cities[s.city].theme);chime();}});}
+  // What each place is for, in words.
+  const PLACES = [
+    { kicker: 'Your apartment', title: 'A few words open doors.', purpose: 'Study a little every day. Signs, menus and neighbors slowly start to make sense.', action: 'Write the next kana', verb: 'Studying Japanese', improve: 'Improve your study corner', auto: 'Build a daily study habit', result: 'Japanese', room: 'Home' },
+    { kicker: 'The corner shop', title: 'Learn the everyday.', purpose: 'Shop locally, sort the recycling, and learn the routines that help you care for the place you live.', action: 'Read the next label', verb: 'Running errands', improve: 'Learn a better route', auto: 'Plan a regular errand route', result: 'culture', room: 'Shop' },
+    { kicker: 'Café Hidamari', title: 'Become a familiar face.', purpose: 'Practice greetings over tea. Learn names, remember stories, and make time for friendship.', action: 'Practice a greeting', verb: 'Having tea with neighbors', improve: 'Make more time for conversation', auto: 'Arrange a regular tea time', result: 'connection', room: 'Café' },
+    { kicker: 'The community hall', title: 'Teach a little. Learn a lot.', purpose: 'Neighbors practice English while they help you with Japanese. Both sides have something to give.', action: 'Practice the next phrase', verb: 'Language exchange', improve: 'Prepare better lessons', auto: 'Organize a weekly exchange', result: 'Japanese', room: 'Hall' },
+    { kicker: 'Everyone’s dining room', title: 'There is room at the table.', purpose: 'Cook and eat together. A meal is an invitation to belong — and nobody has to earn their seat.', action: 'Prepare the next plate', verb: 'Cooking a shared supper', improve: 'Equip the kitchen', auto: 'Share the cooking rota', result: 'connection', room: 'Table' },
+    { kicker: 'The reading room', title: 'Stories are windows.', purpose: 'Read with children and neighbors, share questions, and discover what matters to one another.', action: 'Read the next page', verb: 'Reading together', improve: 'Grow the neighborhood library', auto: 'Start a reading circle', result: 'culture', room: 'Books' },
+    { kicker: 'The community garden', title: 'Tend something together.', purpose: 'Grow vegetables with your neighbors. Share the work, the waiting, and eventually the harvest.', action: 'Water the next seedling', verb: 'Tending the garden', improve: 'Improve the garden beds', auto: 'Form a garden team', result: 'culture', room: 'Garden' },
+    { kicker: 'Everyone’s house', title: 'A church with an open door.', purpose: 'Make room for prayer, shared meals, honest questions, and neighbors caring for one another.', action: 'Set out another cushion', verb: 'Opening the house', improve: 'Make more room', auto: 'Share the life of the house', result: 'connection', room: 'House' }
+  ];
+  const SIDE_NAME = { jp: 'Japanese', culture: 'culture', bonds: 'connection' };
+  const COATS = [['#6e9275', 'Sage'], ['#648ca8', 'Blue'], ['#b98165', 'Terracotta'], ['#9b83ab', 'Lavender']];
 
-function chime(){if(!s.sound)return;try{audioCtx??=new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();[523,659,784].forEach((freq,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=audioCtx.currentTime+i*.08;o.frequency.value=freq;g.gain.setValueAtTime(.025,t);g.gain.exponentialRampToValueAtTime(.0001,t+.6);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.7);});}catch{toast('Sound unavailable on this device.');}}
-function settings(){modal(`<span class="label">YOUR LITTLE WORLD</span><h2>Your life in Japan.</h2><div class="profile-settings">${portrait('player')}<div><label for="profile-name">YOUR NAME</label><input id="profile-name" maxlength="24" value="${escape(s.name)}"><div class="coat-choices">${['#6e9275','#648ca8','#b98165','#9b83ab'].map((c,i)=>`<button data-profile-coat="${c}" style="background:${c}" class="${s.coat===c?'chosen':''}" aria-label="${['Sage','Blue','Terracotta','Lavender'][i]} jacket"></button>`).join('')}</div></div></div><div class="play-preferences"><label><input id="low-effects" type="checkbox" ${s.quality==='low'?'checked':''}> Battery saver · fewer shadows</label><label><input id="reduce-motion" type="checkbox" ${s.reducedMotion?'checked':''}> Reduce motion and floating effects</label></div><h3>Keep your progress.</h3><p>Automatic saves live in this browser. Your selected activity and automated routines keep earning for up to 8 hours away. Backups let you move your game between devices.</p><div class="actions"><button class="secondary" id="export">Export backup</button><button class="secondary" id="import">Import backup</button><button class="secondary" id="save-now">Save now</button></div><p style="margin-top:24px"><b>Lifetime:</b> ${num(s.total)} XP<br><b>Chapter:</b> ${s.chapters+1}<br><b>Automated:</b> ${s.stations.filter(x=>x.auto).length}/8</p><div class="actions"><button class="secondary" id="restart">Start a fresh game…</button></div>`);$('#profile-name').onchange=()=>{s.name=$('#profile-name').value.trim().slice(0,24)||'Friend';save();stats();};$$('[data-profile-coat]').forEach(b=>b.onclick=()=>{s.coat=b.dataset.profileCoat;$$('[data-profile-coat]').forEach(x=>x.classList.toggle('chosen',x===b));save();});$('#low-effects').onchange=()=>{s.quality=$('#low-effects').checked?'low':'auto';save();};$('#reduce-motion').onchange=()=>{s.reducedMotion=$('#reduce-motion').checked;document.body.classList.toggle('reduce-motion',s.reducedMotion);save();};$('#export').onclick=()=>{save();const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(s,null,2)],{type:'application/json'}));a.href=url;a.download='little-light-idle-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exported.');};$('#import').onclick=()=>$('#import-file').click();$('#save-now').onclick=()=>{save();toast(storageOK?'Progress saved.':'Storage unavailable—export a backup instead.');};$('#restart').onclick=()=>{modal('<h2>Start from the beginning?</h2><p>This replaces your current game. Export a backup first if you want to keep it. Entrusting a church and moving to a new city preserves permanent progress.</p><div class="actions"><button class="secondary" id="cancel-reset">Keep my game</button><button class="primary" id="reset-confirm">Reset everything</button></div>');$('#cancel-reset').onclick=settings;$('#reset-confirm').onclick=()=>{s=E.fresh();document.body.classList.remove('reduce-motion');selected=0;quiz=null;last=Date.now();save();closeModal();selectTab('life');intro();};};}
-function away(seconds){if(!s.started)return;const before={xp:s.xp,jp:s.jp,culture:s.culture,bonds:s.bonds};E.step(s,seconds);if(seconds>45){modal(`<span class="label">WHILE YOU WERE AWAY</span><h2>Your life kept growing.</h2><div class="metric">+${num(s.xp-before.xp)} XP</div><div class="offline-stats"><div><b>+${num(s.jp-before.jp)}</b><small>JAPANESE</small></div><div><b>+${num(s.culture-before.culture)}</b><small>CULTURE</small></div><div><b>+${num(s.bonds-before.bonds)}</b><small>CONNECTION</small></div></div><p>${Math.floor(Math.min(seconds,28800)/60)} minutes of progress${seconds>28800?' · 8-hour limit':''}. ${s.stations.some(st=>st.auto)?'Your automated routines kept going.':'Your selected activity kept going; establish routines to run more activities at once.'}</p><button class="primary full" id="away-done">Keep growing →</button>`);$('#away-done').onclick=closeModal;}save();}
-function campaignStrip(){const p=E.project(s),tasks=E.projectProgress(s),progress=tasks.length?tasks.reduce((n,t)=>n+t.done/t.target,0)/tasks.length:1;$('#journey-summary').textContent=E.complete(s)?'Five cities. A life shared.':p?p.name:'Ready to share the leadership';$('#journey-detail').textContent=E.complete(s)?'Your story is complete. The neighborhood keeps growing.':E.CITIES[s.city].name+' · '+s.projects.length+'/3 projects · '+E.gifts(s).length+'/5 churches entrusted';$('#journey-fill').style.width=Math.min(1,(s.projects.length+progress)/3)*100+'%';$('#journey-open').textContent=E.complete(s)?'Your journey →':E.projectReady(s)?'Project ready! →':s.projectActive?'See your project →':'Plan the next chapter →';$('#journey-open').classList.toggle('ready',E.projectReady(s));}
-function projectPanel(){const p=E.project(s),j=E.JOURNEY.cities[s.city];return `<section class="campaign-map"><div class="section-head"><div><span class="label">A FIVE-CITY JOURNEY</span><h2>${E.complete(s)?'The light stays on.':j.theme}</h2><p>${j.season} · ${E.gifts(s).length}/5 churches entrusted</p></div>${E.complete(s)?'<button class="secondary" id="read-ending">Read the ending →</button>':''}</div><div class="city-route">${E.CITIES.map((c,i)=>`<button data-city-info="${i}" class="city-node ${i===s.city?'current':''} ${E.gifts(s).includes(i)?'entrusted':''}"><span>${E.gifts(s).includes(i)?'✦':i===s.city?'●':'○'}</span><b>${c.name}</b><small>${E.gifts(s).includes(i)?'Entrusted':i===s.city?'You are here':'A new beginning'}</small></button>`).join('')}</div></section><section class="project-board"><div class="project-story"><span class="label">${p?'COMMUNITY PROJECT '+(s.projects.length+1)+' OF 3':'A COMMUNITY THAT CAN CARRY ON'}</span><h2>${p?p.name:'You have built something together.'}</h2><p>${p?p.text:j.letter}</p><div class="project-stamps">${j.projects.map((x,i)=>`<span class="${s.projects.includes(i)?'done':''}">${s.projects.includes(i)?'✓':'○'} ${x.name}</span>`).join('')}</div></div><div class="project-work">${p?`<span class="label">${s.projectActive?'WORK TOGETHER':'WHAT THIS PROJECT NEEDS'}</span>${p.tasks.map(([i,n,label],k)=>`<button class="project-task" data-task-place="${i}"><span>${E.ACTIVITIES[i].icon}</span><div><b>${label}</b><small>${E.ACTIVITIES[i].name}${s.stations[i].level?' · '+(s.stations[i].auto?'routine established':'your character can work here'):' · unlock this place first'}</small><div class="wide-progress"><i data-project-fill="${k}"></i></div></div><strong data-project-count="${k}">0 / ${n}</strong><span>→</span></button>`).join('')}<p class="project-explanation">Completed activity cycles count after you begin. Established routines contribute while you work elsewhere and while you are away.</p><button class="primary full" id="project-action"></button><div class="project-reward">Completion: +${num(p.reward)} XP · +${p.amount} ${p.side==='jp'?'Japanese':p.side==='bonds'?'connection':'culture'}<br><b>+15% to this city’s production</b></div>`:`<div class="project-complete">✦<h3>Three projects, shared responsibility.</h3><p>Appoint two local elders and prepare the open table for handover. You carry the city’s gift into every future beginning.</p><b>${j.gift}</b><small>${j.effect}</small></div>`}</div></section>`;}
-function bindCampaign(){if(tab!=='chapter')return;$$('[data-task-place]').forEach(b=>b.onclick=()=>selectPlace(Number(b.dataset.taskPlace)));$$('[data-city-info]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.cityInfo),c=E.CITIES[i],j=E.JOURNEY.cities[i];modal(`<span class="label">${E.gifts(s).includes(i)?'A CHURCH ENTRUSTED':'A PLACE IN YOUR JOURNEY'}</span><h2>${c.name}</h2><p>${j.season}</p><h3>${j.theme}</h3><p>${j.projects.map(p=>escape(p.name)).join(' → ')}</p><div class="culture-note"><b>${j.gift}</b><p>${j.effect}</p></div>${E.gifts(s).includes(i)?'<p>'+j.letter+'</p>':'<p>'+c.tag+'. Complete its projects and entrust its church to carry this gift forward.</p>'}`);});$('#read-ending')?.addEventListener('click',ending);$('#project-action')?.addEventListener('click',()=>{advance();if(E.projectReady(s)){const p=E.claimProject(s);log(p.done);save();render();chime();modal(`<span class="label">A PROJECT COMPLETED TOGETHER</span><h2>${p.name}</h2><p>${p.done}</p><div class="culture-note"><b>+${num(p.reward)} XP · +${p.amount} ${p.side==='jp'?'Japanese':p.side==='bonds'?'connection':'culture'}</b><p>Your local production bonus is now +${s.projects.length*15}%.</p></div><button class="primary full" id="project-done">See what comes next →</button>`);$('#project-done').onclick=()=>{closeModal();render();};}else if(E.startProject(s)){save();render();toast('Project begun. Every completed task now contributes.');}});}
-function syncCampaign(){campaignStrip();if(tab!=='chapter')return;const p=E.project(s);if(p&&$('#project-action')){const tasks=E.projectProgress(s);tasks.forEach((t,k)=>{$('[data-project-count="'+k+'"]').textContent=t.done+' / '+t.target;$('[data-project-fill="'+k+'"]').style.width=t.done/t.target*100+'%';});const b=$('#project-action');b.disabled=s.projectActive?!E.projectReady(s):!E.projectCanStart(s);b.textContent=E.projectReady(s)?'Complete the project →':s.projectActive?'Your routines are contributing…':p.tasks.some(([i])=>!s.stations[i].level)?'Unlock the places above to begin':'Begin project · '+num(p.cost)+' XP';}$('#handover-projects')?.classList.toggle('met',s.projects.length===3);}
-function situationPanel(){const ready=E.JOURNEY.situations.map((q,i)=>({q,i})).filter(x=>s.jp>=x.q.at&&!s.situations.includes(x.i));const item=ready[0];return `<section class="situation-section"><div><span class="label">USE IT IN THE NEIGHBORHOOD</span><h2>${item?item.q.title:'Words becoming part of life'}</h2><p>${item?item.q.scene:s.situations.length===10?'You have practiced all ten everyday situations. You can keep reviewing vocabulary below.':'Keep studying to unlock the next situation.'}</p><small>${s.situations.length} / 10 situations understood · correct answers grant Japanese insight and a useful reward.</small></div>${item?`<div class="situation-question"><div lang="ja">${item.q.jp}</div><small>${item.q.romaji}</small><div class="options">${item.q.options.map((o,a)=>`<button data-situation="${item.i}" data-situation-answer="${a}">${o}</button>`).join('')}</div><p id="situation-feedback">No penalty for trying.</p></div>`:'<div class="situation-seal">言葉<br><small>WORDS THAT OPEN DOORS</small></div>'}</section>`;}
-function bindSituations(){$$('[data-situation]').forEach(b=>b.onclick=()=>{advance();const i=Number(b.dataset.situation),a=Number(b.dataset.situationAnswer),q=E.JOURNEY.situations[i];if(a!==q.answer){b.classList.add('wrong');$('#situation-feedback').textContent='Try again. '+q.note;return;}if(E.solveSituation(s,i,a)){save();render();toast('Understood! +8 Japanese and a reward. '+q.note);chime();}});}
-function ending(){s.finaleSeen=true;save();modal(`<span class="label">A LITTLE LIGHT · THE END OF THE FIRST JOURNEY</span><h2>The light stays on.</h2><p>${E.JOURNEY.cities[4].letter}</p><p>You began with a suitcase and a handful of words. Now there are people you can speak with, stories you could not have heard before, and communities whose life continues in local hands.</p><p>You were welcomed. You learned. You gave what you could. And you learned to leave room for others.</p><div class="ending-stats"><span><b>5</b>cities entrusted</span><span><b>${s.plants.reduce((n,p)=>n+p.elders.length,0)}</b>local elders</span><span><b>${s.learned.length+s.situations.length}</b>language lessons</span></div><p class="ending-line">“Will you stay for tea?”</p><button class="primary full" id="ending-continue">Stay a while. Keep growing. →</button>`,false);$('#ending-continue').onclick=()=>{closeModal();selectTab('life');};}
+  // ——— Load ———
+  let s = E.fresh(), tab = 'town', selected = 0, buyMode = '1', last = Date.now(), storageOK = true, returning = false, priorRevision = E.REVISION;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      s = E.hydrate(parsed);
+      priorRevision = parsed.revision;
+      returning = parsed.started && parsed.revision < E.REVISION;
+    } else {
+      const old = localStorage.getItem('little-light-japan-v1');
+      if (old) { s = E.migrate(JSON.parse(old)); returning = true; }
+    }
+  } catch { storageOK = false; }
+  s.revision = E.REVISION;
+  Sound.enabled = s.sound;
+  selected = s.focus || 0;
+  E.resume(s);
+  document.body.classList.toggle('reduce-motion', s.reducedMotion);
 
-const goals=[
-{title:'Complete a study session',target:1,value:s=>s.stations[0].cycles,reward:50},
-{title:'Learn enough Japanese to shop locally',target:5,value:s=>s.jp,reward:150},
-{title:'Visit the corner shop',target:1,value:s=>Number(s.stations[1].level>0),reward:300},
-{title:'Build your study space to level 10',target:10,value:s=>s.stations[0].level,reward:500},
-{title:'Establish a habit that runs without you',target:1,value:s=>s.stations.filter(x=>x.auto).length,reward:700},
-{title:'Learn your first greetings',target:20,value:s=>s.jp,reward:1200},
-{title:'Become a regular at Emi’s café',target:1,value:s=>Number(s.stations[2].level>0),reward:7000},
-{title:'Build three independent routines',target:3,value:s=>s.stations.filter(x=>x.auto).length,reward:18000},
-{title:'Join the language exchange',target:1,value:s=>Number(s.stations[3].level>0),reward:55000},
-{title:'Understand words around the dinner table',target:130,value:s=>s.jp,reward:140000},
-{title:'Host a table for the neighborhood',target:1,value:s=>Number(s.stations[4].level>0),reward:400000},
-{title:'Open the reading room',target:1,value:s=>Number(s.stations[5].level>0),reward:1500000},
-{title:'Plant the community garden',target:1,value:s=>Number(s.stations[6].level>0),reward:8000000},
-{title:'Open the fellowship house',target:1,value:s=>Number(s.stations[7].level>0),reward:40000000}];
-function goal(){const g=goals[s.quest];if(!g){$('#goal-label').textContent='YOUR NEXT CHURCH PLANT';$('#goal-text').textContent='Develop local elders and entrust the work';$('#goal-progress').textContent='See Church plants';$('#goal-claim').textContent='Open →';$('#goal-claim').disabled=false;return;}const value=g.value(s);$('#goal-label').textContent='A PURPOSE FOR TODAY · '+(s.quest+1)+' / 14';$('#goal-text').textContent=g.title;$('#goal-progress').textContent=num(Math.min(value,g.target))+' / '+num(g.target);$('#goal-claim').disabled=value<g.target;$('#goal-claim').textContent=(value>=g.target?'Claim ':'+')+num(g.reward)+' XP';}
-function renderActivity(){const i=selected,st=s.stations[i],a=E.ACTIVITIES[i],p=places[i];$('#place-category').textContent=p.category;$('#place-title').textContent=p.title;$('#place-purpose').textContent=p.purpose;if(!st.level){$('#activity-content').innerHTML=`<div class="unlock-preview"><span class="unlock-symbol">${a.icon}</span><h3>${s.jp>=a.needs[0]?a.name:a.jp}</h3><p>Get to know more of the neighborhood to begin here.</p><div class="requirements">${a.needs.map((v,k)=>v?`<span data-require="${k}" class="requirement">${['あ','❀','♡'][k]} ${v} ${['Japanese','culture','connection'][k]}</span>`:'').join('')}<span class="requirement" id="previous-place">Visit ${places[Math.max(0,i-1)].room.toLowerCase()} first</span></div><button id="unlock-place" class="primary full">Begin here · ${num(a.cost)} XP</button><button id="return-task" class="text-button">Return to ${places[s.focus].room.toLowerCase()} →</button></div>`;$('#unlock-place').onclick=()=>{advance();if(E.buy(s,i,'1')){E.start(s,i);log('A new part of life: '+a.name+'.');save();render();toast(a.name+' unlocked. Your character is on the way.');chime();}};$('#return-task').onclick=()=>selectPlace(s.focus);return;}
-const next=E.nextMark(st.level);$('#activity-content').innerHTML=`<div class="live-activity"><div class="task-state"><span class="status-dot"></span><strong id="task-status">${p.verb}</strong><span id="task-timer"></span></div><div class="task-progress"><i id="task-fill"></i></div><div class="task-rewards"><span id="task-xp"></span><span id="task-side"></span></div><button class="purpose-button" id="assist"><span>${p.action}</span><small>Help with this task · advance 0.65s</small></button><p class="continues">Your character repeats this activity automatically.</p><div id="task-contribution" class="task-contribution" hidden></div></div><div class="improvement"><div class="improve-header"><div><span class="eyebrow">${p.object.toUpperCase()}</span><strong>Level ${st.level}</strong></div><div class="buy-selector">${['1','10','max'].map(n=>`<button data-quantity="${n}" class="${n===buyMode?'active':''}">${n==='max'?'Max':'×'+n}</button>`).join('')}</div></div><button id="improve" class="upgrade-control"><span>${p.improve}</span><b id="improve-price"></b></button><small id="next-milestone">${next?'Level '+next+' → ×2 production'+([25,100].includes(next)?' + double speed':''):'All milestones reached'}</small></div><div class="automation"><span class="eyebrow">WHILE YOU’RE ELSEWHERE</span><h3>${st.auto?'A routine you can rely on.':p.auto+'.'}</h3><p>${st.auto?'A neighbor or established routine keeps this activity going when you visit another place.':a.mentor+' keeps this activity running while you focus on something else.'}</p><button id="automate" class="secondary full">${st.auto?'✓ Established':'Establish routine · '+num(E.autoCost(i))+' XP'}</button></div>`;
-$('#assist').onclick=assist;$('#improve').onclick=()=>{advance();const marks=E.marks(st.level);if(E.buy(s,i,buyMode)){save();render();if(E.marks(st.level)>marks){toast('Milestone reached! Your '+p.object.toLowerCase()+' is more effective.');chime();}}};$('#automate').onclick=()=>{advance();if(E.automate(s,i)){save();render();toast('This routine now continues when you go elsewhere.');chime();}};$$('[data-quantity]').forEach(b=>b.onclick=()=>{buyMode=b.dataset.quantity;renderActivity();stats();});}
-function portrait(id,extra=''){return `<span class="portrait portrait-${id} ${extra}" role="img" aria-label="${id==='player'?'Your character':escape(people.find(p=>p.id===id)?.name||id)}"></span>`;}
-function quickStats(){const i=selected,st=s.stations[i],a=E.ACTIVITIES[i],p=places[i],owned=st.level>0;$('#quick-assist-label').textContent=owned?p.action:'Begin at '+p.room;$('#quick-assist-detail').textContent=owned?Math.max(0,E.duration(s,i)-st.progress).toFixed(1)+'s · +'+num(E.payout(s,i))+' XP':num(a.cost)+' XP · '+(E.accessible(s,i)?'Ready to unlock':'Requirements below');$('#quick-assist').disabled=!s.started||(!owned&&(!E.accessible(s,i)||s.xp<a.cost));$('#quick-progress').style.width=(owned?st.progress/E.duration(s,i)*100:0)+'%';$('#quick-improve-label').textContent=owned?'Improve · Lv '+st.level:'See requirements';$('#quick-improve-detail').textContent=owned?(st.level===500?'All improvements complete':num(E.price(s,i))+' XP'):'Language · culture · connection';$('#quick-improve').disabled=owned&&(st.level===500||s.xp<E.price(s,i));const g=goals[s.quest];$('#quick-goal').hidden=!g||g.value(s)<g.target;$('#quick-goal').textContent=g?'✦ Claim goal · +'+num(g.reward)+' XP':'';const id=['sato','sato','emi','haru','aiko','haru','kenji','aiko'][i],person=people.find(p=>p.id===id),wait=Math.max(0,Math.ceil(40-(s.time-(s.visits[id]??-999))));const meet=$('#meet-neighbor');if(meet.dataset.neighborId!==id){meet.dataset.neighborId=id;meet.innerHTML=portrait(id)+`<span><b>${person.name}</b><small></small></span>`;}meet.disabled=!s.started||s.jp<person.jp||wait>0;meet.querySelector('small').textContent=s.jp<person.jp?person.jp+' Japanese to meet':wait?'Visit again in '+wait+'s':(s.stories[id]||0)<4&&s.bonds>=[0,10,30,80][s.stories[id]||0]?'A story to share →':'Stop for a conversation →';meet.classList.toggle('story-ready',!meet.disabled&&(s.stories[id]||0)<4&&s.bonds>=[0,10,30,80][s.stories[id]||0]);}
-function quickImprove(){advance();const i=selected,st=s.stations[i];if(!st.level){setExpanded(false);$('#activity-panel').scrollIntoView?.({behavior:'smooth',block:'start'});return;}const before=E.marks(st.level);if(E.buy(s,i,'1')){save();render();window.WorldView?.celebrate?.();if(E.marks(st.level)>before){toast('Milestone! '+places[i].object+' now produces twice as much.');chime();}else reward(places[i].object+' · level '+st.level);}}
-function setExpanded(value){document.body.classList.toggle('world-expanded',value);$('#expand-world').textContent=value?'×':'⛶';$('#expand-world').setAttribute('aria-label',value?'Exit expanded neighborhood':'Expand neighborhood');$('#expand-world').setAttribute('aria-pressed',String(value));}
-function goToNeighbor(id){const p=people.find(p=>p.id===id);if(s.jp<p.jp){toast('Keep learning Japanese to meet '+p.name+'.');return;}const wait=Math.ceil(40-(s.time-(s.visits[id]??-999)));if(wait>0){toast(p.name+' will be free in '+wait+' seconds.');return;}visit(id);}
+  function advance(now = Date.now()) {
+    const dt = Math.max(0, (now - last) / 1000);
+    last = now;
+    if (s.started) E.step(s, dt);
+  }
+  function save() {
+    advance();
+    s.last = last;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+      storageOK = true;
+    } catch { storageOK = false; }
+  }
 
-function stats(){const level=E.language(s);$('#xp').textContent=num(s.xp);$('#income').textContent='+'+num(E.rate(s))+' XP / sec';$('#jp-stat').textContent=num(s.jp);$('#culture-stat').textContent=num(s.culture);$('#bonds-stat').textContent=num(s.bonds);$('#city-name').textContent=E.CITIES[s.city].name;$('#district-name').textContent=E.CITIES[s.city].district+' · Church plant '+(s.chapters+1);$('#character-name').textContent=s.name;$('#character-activity').textContent=places[s.focus].verb;$('#bubble-text').textContent=places[s.focus].bubble;$('#bubble-time').textContent=Math.max(0,E.duration(s,s.focus)-s.stations[s.focus].progress).toFixed(1)+'s';$('#sound').classList.toggle('on',s.sound);$('#sound').setAttribute('aria-pressed',String(s.sound));$$('[data-place]').forEach(b=>{const i=Number(b.dataset.place);b.classList.toggle('selected',i===selected);b.classList.toggle('locked',!s.stations[i].level);b.classList.toggle('available',!s.stations[i].level&&E.accessible(s,i)&&s.xp>=E.ACTIVITIES[i].cost);b.querySelector('.dock-status').textContent=s.stations[i].level?(s.stations[i].auto?'∞':'Lv '+s.stations[i].level):E.accessible(s,i)&&s.xp>=E.ACTIVITIES[i].cost?'NEW':'◇';});const i=selected,st=s.stations[i],a=E.ACTIVITIES[i];if(st.level&&$('#task-fill')){const duration=E.duration(s,i),n=E.quantity(s,i,buyMode);$('#task-fill').style.width=st.progress/duration*100+'%';$('#task-timer').textContent=Math.max(0,duration-st.progress).toFixed(1)+'s';$('#task-xp').textContent='+'+num(E.payout(s,i))+' XP / cycle';$('#task-side').textContent='+'+E.sideGain(s,i).toFixed(2)+' '+places[i].result.toLowerCase();$('#improve-price').textContent=st.level>=500?'Max level':num(E.price(s,i,n||1))+' XP';$('#improve').disabled=n<1||s.xp<E.price(s,i,n);$('#automate').disabled=st.auto||s.xp<E.autoCost(i);$('#assist').disabled=!s.started;}else if(!st.level&&$('#unlock-place')){$('#unlock-place').disabled=!E.accessible(s,i)||s.xp<a.cost;$$('[data-require]').forEach(el=>{const k=Number(el.dataset.require);el.classList.toggle('met',s[['jp','culture','bonds'][k]]>=a.needs[k]);});$('#previous-place').classList.toggle('met',i===0||s.stations[i-1].level>0);}const contribution=$('#task-contribution');if(contribution){const p=E.project(s),task=E.projectProgress(s).find(t=>t.i===selected);contribution.hidden=!s.projectActive||!task;contribution.textContent=p&&task?'Contributing to '+p.name+' · '+task.done+' / '+task.target+' tasks':'';}goal();syncSecondary();syncCampaign();quickStats();}
-function syncSecondary(){if(tab==='boosts')$$('[data-upgrade]').forEach(b=>{const u=E.BOOSTS.find(x=>x.id===b.dataset.upgrade);b.disabled=s.upgrades.includes(u.id)||s.xp<u.cost;});if(tab==='neighbors')$$('[data-person]').forEach(b=>{const p=people.find(p=>p.id===b.dataset.person),wait=Math.max(0,Math.ceil(40-(s.time-(s.visits[p.id]??-999))));b.disabled=s.jp<p.jp||wait>0;b.textContent=s.jp<p.jp?p.jp+' Japanese to meet':wait>0?'Back in '+wait+'s':'Visit →';});if(tab==='japanese'){const lev=E.language(s),next=E.THRESHOLDS[lev+1],base=E.THRESHOLDS[lev];$('#language-value').textContent=num(s.jp);$('#language-name').textContent=names[lev];$('#language-progress').style.width=(next?(s.jp-base)/(next-base)*100:100)+'%';$('#language-next').textContent=next?num(s.jp)+' / '+next+' insight to the next level':'Every translation is unlocked.';$('#language-bonus').textContent='×'+(1+lev*.1).toFixed(1)+' earnings from Japanese';}if(tab==='chapter'){$('#legacy-gain').textContent='+'+E.legacyGain(s);$('#prestige-button').disabled=!E.ready(s);$('#run-xp').textContent=num(s.run)+' / 1M XP in this plant';$$('[data-mentor]').forEach(b=>{const i=Number(b.dataset.mentor),e=s.elders[i];b.textContent=e.appointed?'✓ Appointed':e.running?'Mentoring · '+Math.ceil(45-e.progress)+'s':e.training===3?'Appoint as elder':'Mentor · '+num(E.TRAINING[e.training])+' XP';b.disabled=e.appointed||e.running||(e.training<3&&(s.bonds<20||s.culture<20||!s.stations[4].level||s.xp<E.TRAINING[e.training]));$('[data-training="'+i+'"]').textContent=e.training+' / 3 stages';$('[data-training-fill="'+i+'"]').style.width=((e.training+(e.running?e.progress/45:0))/3*100)+'%';});$('#handover-table').classList.toggle('met',s.stations[4].level>=10&&s.stations[4].auto);$('#handover-elders').classList.toggle('met',s.elders.filter(e=>e.appointed).length>=2);$('#handover-xp').classList.toggle('met',E.legacyGain(s)>=1);}}
-function render(){renderActivity();if(tab!=='life'){$('#panel').innerHTML=({japanese,neighbors,boosts,chapter})[tab]();$$('[data-answer]').forEach(b=>b.onclick=()=>answer(Number(b.dataset.answer)));$('#next-question')?.addEventListener('click',()=>{makeQuiz();render();});$('#listen')?.addEventListener('click',listen);$$('[data-person]').forEach(b=>b.onclick=()=>visit(b.dataset.person));$$('[data-upgrade]').forEach(b=>b.onclick=()=>{advance();if(E.upgrade(s,b.dataset.upgrade)){save();render();toast('New equipment unlocked.');chime();}});$('#prestige-button')?.addEventListener('click',prestige);$$('[data-mentor]').forEach(b=>b.onclick=()=>{advance();const i=Number(b.dataset.mentor);if(s.elders[i].training===3){if(E.appoint(s,i)){log(E.CITIES[s.city].elders[i]+' was appointed as an elder.');toast('A local elder is ready to carry the work.');chime();}}else if(E.train(s,i))toast('Mentoring begun. Learning to listen, care, and teach.');save();stats();});bindCampaign();bindSituations();}stats();}
-function selectTab(t){tab=t;if(t!=='life')setExpanded(false);$('#drawer').hidden=t==='life';$('#drawer-title').textContent=({japanese:'Japanese',neighbors:'People',boosts:'Equipment',chapter:'Your journey'})[t]||'';$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));render();}
-function selectPlace(i){if(!Number.isInteger(i)||i<0||i>7)return;advance();selected=i;if(s.stations[i].level)E.start(s,i);selectTab('life');save();}
-function reward(text){if(s.reducedMotion)return;const node=document.createElement('div');node.className='world-reward';node.textContent=text;$('#world-rewards').append(node);setTimeout(()=>node.remove(),1600);}
-function assist(){if(Date.now()-lastTap<95||!s.started)return;lastTap=Date.now();advance();const result=E.assist(s);window.WorldView?.assist();if(result.xp){reward('+'+num(result.xp)+' XP · '+places[s.focus].result);chime();}else{const b=$('#quick-assist');b.classList.remove('helped');void b.offsetWidth;b.classList.add('helped');}stats();}
-function intro(){modal(`${portrait('player','arrival-portrait')}<div class="jacket-preview"><span class="portrait-body" style="background:${s.coat}"></span></div><span class="label">A LIFE IN JAPAN</span><h2>You’ve arrived.<br>Let’s learn the first words.</h2><p>Your apartment is small, your Japanese is limited, and the neighborhood is full of people you haven’t met yet.</p><p><b>Choose a place and your character gets to work.</b> Help with the task to speed it up. Build routines so life keeps growing while you visit somewhere else.</p><label for="your-name">YOUR NAME</label><input id="your-name" maxlength="24" value="${escape(s.name)}"><div class="coat-choices" aria-label="Choose your jacket">${['#6e9275','#648ca8','#b98165','#9b83ab'].map(c=>`<button data-coat="${c}" style="background:${c}" aria-label="Choose ${c} jacket" class="${s.coat===c?'chosen':''}"></button>`).join('')}</div><button id="begin" class="primary full">Unpack & start studying →</button>`,false);$$('[data-coat]').forEach(b=>b.onclick=()=>{s.coat=b.dataset.coat;$$('[data-coat]').forEach(x=>x.classList.toggle('chosen',x===b));$('.portrait-body').style.background=s.coat;});$('#begin').onclick=()=>{s.name=$('#your-name').value.trim()||'Friend';s.started=true;E.start(s,0);last=Date.now();log('I arrived with a suitcase and began learning the words for a new life.');save();closeModal();render();toast('Your character is studying. Help write the next kana, or let the routine run.');};}
-function help(){modal(`<span class="label">A LIFE WITH PURPOSE</span><h2>Choose a place. Do the work.</h2><p><b>In the neighborhood:</b> Use the two buttons below your character to help with work and improve the current place. Tap a neighbor’s portrait to visit. The gold goal button collects your next earned reward. Expand the world with ⛶; use +/− and the curved arrows to adjust the camera.</p><p><b>Your character:</b> Select a building or activity along the bottom of the town. Your character walks there and continuously repeats that activity. The visible countdown marks the next reward.</p><p><b>Help with a real task:</b> Click your character or the activity button to write a kana, practice a greeting, prepare a plate, or water a seedling. Each click advances only that activity by 0.65 seconds. Rewards arrive when a cycle completes.</p><p><b>Improve your surroundings:</b> Spend experience on your study space, route, kitchen, garden, and other facilities. New furniture appears at levels 10, 25, and 50. Production doubles at milestone levels.</p><p><b>Build routines:</b> Your character does one thing at a time. Established habits and neighbors continue other activities when you go elsewhere, including while you’re away.</p><p><b>Community projects:</b> Open Your journey to begin one of three projects in this city. Complete its work through normal activity cycles, then claim the outcome. Each completed project increases local production by 15%.</p><p><b>Plant and entrust:</b> Complete the three projects, build an automated open table at level 10, mentor and appoint two local elders, and earn 1M XP. Entrust the church and move to a new city with its support, a permanent city gift, and all your language learning. Entrust churches in all five cities to reach the ending.</p><p style="font-size:10px">The neighborhoods and people are fictional. Original stories emphasize hospitality, humility, and Christian hope. Experience measures game progression, not anyone’s spiritual worth.</p>`);}
-$('#quick-assist').onclick=()=>{if(s.stations[selected].level)assist();else $('#unlock-place')?.click();};$('#quick-improve').onclick=quickImprove;$('#quick-goal').onclick=()=>$('#goal-claim').click();$('#meet-neighbor').onclick=()=>goToNeighbor($('#meet-neighbor').dataset.neighborId);$('#expand-world').onclick=()=>setExpanded(!document.body.classList.contains('world-expanded'));$('#rotate-left').onclick=()=>window.WorldView?.rotate(-1);$('#rotate-right').onclick=()=>window.WorldView?.rotate(1);$('#zoom-in').onclick=()=>window.WorldView?.zoom(1);$('#zoom-out').onclick=()=>window.WorldView?.zoom(-1);
-$('#journey-open').onclick=()=>selectTab('chapter');
-$('#activity-dock').innerHTML=E.ACTIVITIES.map((a,i)=>`<button data-place="${i}" title="${a.name}"><span class="dock-icon">${a.icon}</span><b>${places[i].room}</b><small class="dock-status">◇</small></button>`).join('');$$('[data-place]').forEach(b=>b.onclick=()=>selectPlace(Number(b.dataset.place)));$$('[data-tab]').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));$('#close-drawer').onclick=()=>selectTab('life');$('#language-shortcut').onclick=()=>selectTab('japanese');$('.brand').onclick=e=>{e.preventDefault();selectPlace(s.focus);};$('#character-bubble').onclick=assist;$('#camera-mode').onclick=()=>{const close=window.WorldView?.focus();$('#camera-mode').textContent=close?'⌖':'⤢';$('#camera-mode').title=close?'Show the whole neighborhood':'Follow your character';};$('#sound').onclick=()=>{s.sound=!s.sound;chime();stats();save();};$('#settings').onclick=settings;$('#help').onclick=help;$('#goal-claim').onclick=()=>{advance();const g=goals[s.quest];if(!g){selectTab('chapter');return;}if(g.value(s)<g.target)return;E.earn(s,g.reward);s.quest++;save();stats();chime();toast('Purpose fulfilled · +'+num(g.reward)+' XP');};
-$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>250000)throw Error('Save file is too large.');const raw=JSON.parse(await file.text()),imported=raw.version===1?E.migrate(raw):E.hydrate(raw);modal(`<h2>Restore this life?</h2><p>Replace current progress with ${num(imported.total)} lifetime XP and ${num(imported.jp)} Japanese insight?</p><div class="actions"><button class="secondary" id="cancel-import">Cancel</button><button class="primary" id="confirm-import">Restore</button></div>`);$('#cancel-import').onclick=settings;$('#confirm-import').onclick=()=>{s=imported;s.revision=5;document.body.classList.toggle('reduce-motion',s.reducedMotion);quiz=null;last=Date.now();selected=s.focus;E.resume(s);closeModal();selectTab('life');away(Math.max(0,(Date.now()-s.last)/1000));save();render();if(!s.started)intro();};}catch(error){toast('Could not import: '+error.message);}e.target.value='';};
-document.addEventListener('keydown',e=>{const m=$('.modal');if(m){if(e.key==='Escape'&&$('.modal-close'))closeModal();if(e.key==='Tab'){const els=[...m.querySelectorAll('button:not(:disabled),input')],first=els[0],last=els[els.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}return;}if(e.key==='Escape'){setExpanded(false);selectTab('life');}if(e.code==='Space'&&tab==='life'&&!['INPUT','BUTTON'].includes(document.activeElement.tagName)){e.preventDefault();assist();}});
-window.GameBridge={state:()=>s,selection:()=>selected,select:selectPlace,assist,notice:toast,visit:goToNeighbor};
-render();const awayTime=Math.max(0,(Date.now()-s.last)/1000);if(s.started){away(awayTime);render();if(E.complete(s)&&!s.finaleSeen)ending();if(returning){toast('New in-town controls: help, improve, and meet neighbors without leaving the scene.');s.revision=5;save();}}else intro();
-// A single wall-clock cursor prevents missed time, double catch-up, or paused UI timers.
-let lastLevel=E.language(s),lastCycles=s.stations.map(st=>st.cycles);function tick(){advance();const cycles=s.stations[s.focus].cycles;if(cycles>lastCycles[s.focus]&&s.started){reward('+'+num(E.payout(s,s.focus))+' XP · '+places[s.focus].result);}lastCycles=s.stations.map(st=>st.cycles);stats();const level=E.language(s);if(level>lastLevel){toast('Japanese level up! More of the neighborhood makes sense.');chime();if(tab==='japanese')render();}lastLevel=level;}
-setInterval(tick,100);setInterval(()=>{if(s.started)save();},4000);document.addEventListener('visibilitychange',()=>{tick();save();});window.addEventListener('pagehide',save);window.addEventListener('pageshow',tick);
+  // ——— Formatting ———
+  const UNITS = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+  function num(n) {
+    if (!Number.isFinite(n)) return '∞';
+    if (n < 1000) return Math.floor(n).toLocaleString('en-US');
+    const k = Math.floor(Math.log10(n) / 3);
+    if (k >= UNITS.length) return n.toExponential(2);
+    const v = n / Math.pow(1000, k);
+    return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : v.toFixed(0)).replace(/\.0+$/, '').replace(/(\.\d)0$/, '$1') + UNITS[k];
+  }
+  function small(n) { return n >= 100 ? num(n) : n >= 10 ? n.toFixed(1) : n.toFixed(2); }
+  function secs(n) { return n >= 60 ? Math.floor(n / 60) + 'm ' + String(Math.floor(n % 60)).padStart(2, '0') + 's' : n.toFixed(1) + 's'; }
+
+  // ——— Toasts ———
+  let toastTimer;
+  function toast(text, kind = '') {
+    const t = $('#toast');
+    t.textContent = text;
+    t.className = 'toast show ' + kind;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 3200);
+  }
+  function log(text, kind) {
+    s.journal.unshift({ time: s.time, text, ...(kind ? { kind } : {}) });
+    s.journal = s.journal.slice(0, 80);
+  }
+
+  // ——— Popups, one at a time ———
+  const pending = [];
+  let modalOpen = null, previousFocus = null;
+  function openModal(spec) {
+    if (modalOpen) { pending.push(spec); return; }
+    modalOpen = spec;
+    previousFocus = document.activeElement;
+    const closable = spec.closable !== false;
+    $('#modal-root').innerHTML = `<div class="modal-backdrop ${spec.cls || ''}"><section class="modal" tabindex="-1" role="dialog" aria-modal="true" aria-label="${esc(spec.label || 'A Little Light')}">${closable ? '<button class="modal-close" aria-label="Close">×</button>' : ''}<div class="modal-body">${spec.html}</div></section></div>`;
+    const el = $('#modal-root .modal');
+    if (closable) {
+      el.querySelector('.modal-close').onclick = () => closeModal();
+      $('#modal-root .modal-backdrop').onclick = e => { if (e.target === e.currentTarget) closeModal(); };
+    }
+    spec.bind?.(el);
+    // Focus the dialog itself: focusing a text box would pop up the phone keyboard.
+    (el.querySelector('[autofocus]') || el).focus({ preventScroll: true });
+  }
+  function closeModal() {
+    const spec = modalOpen;
+    $('#modal-root').innerHTML = '';
+    modalOpen = null;
+    spec?.onClose?.();
+    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    const next = pending.shift();
+    if (next) openModal(next);
+    else render();
+  }
+  function setModal(html, bind) {
+    const body = $('#modal-root .modal-body');
+    if (!body) return;
+    body.innerHTML = html;
+    bind?.($('#modal-root .modal'));
+    body.scrollTop = 0;
+  }
+
+  function portrait(id, cls = '') {
+    const p = C.PEOPLE.find(x => x.id === id);
+    if (id === 'player' || p) return `<span class="portrait portrait-${id} ${cls}" role="img" aria-label="${esc(p?.name || 'You')}"></span>`;
+    return '';
+  }
+  function seal(local, cls = '') {
+    return `<span class="seal ${cls}" style="--accent:${local.color}" aria-hidden="true">${local.seal}</span>`;
+  }
+  function chips(gains) {
+    return Object.entries(gains).filter(([, v]) => v).map(([k, v]) => `<span class="gain gain-${k}">+${typeof v === 'number' && v >= 1000 ? num(v) : v} ${k === 'xp' ? 'XP' : SIDE_NAME[k]}</span>`).join('');
+  }
+
+  // ——— HUD ———
+  function hud() {
+    $('#xp').textContent = num(s.xp);
+    $('#rate').textContent = '+' + num(E.rate(s)) + ' / sec';
+    $('#jp').textContent = num(s.jp);
+    $('#culture').textContent = num(s.culture);
+    $('#bonds').textContent = num(s.bonds);
+    const city = E.CITIES[s.city];
+    $('#city-name').textContent = city.name;
+    $('#where-line').textContent = city.district + ' · ' + timeWord() + ' · ' + city.season.split(' · ')[0].toLowerCase();
+    goalChip();
+    dots();
+  }
+  function timeWord() {
+    if (s.clock === 'day') return 'daytime';
+    const h = new Date().getHours();
+    return h < 5 ? 'night' : h < 11 ? 'morning' : h < 17 ? 'afternoon' : h < 20 ? 'evening' : 'night';
+  }
+  function goalChip() {
+    const g = E.goal(s), chip = $('#goal-chip');
+    if (!g) {
+      const h = E.handover(s), done = Object.values(h).filter(Boolean).length;
+      chip.classList.toggle('ready', E.ready(s));
+      $('#goal-kicker').textContent = E.complete(s) ? 'Five cities. A life shared.' : 'Prepare to entrust the church';
+      $('#goal-title').textContent = E.complete(s) ? 'The light stays on' : E.ready(s) ? 'Ready — open Journey' : done + ' of 4 steps ready';
+      $('#goal-fill').style.width = (E.complete(s) ? 100 : done * 25) + '%';
+      return;
+    }
+    const v = Math.min(g.value(s), g.target), ready = v >= g.target;
+    chip.classList.toggle('ready', ready);
+    $('#goal-kicker').textContent = ready ? 'Tap to claim · +' + num(E.goalReward(s)) + ' XP' : 'A purpose for today · ' + (s.quest + 1) + '/' + E.GOALS.length;
+    $('#goal-title').textContent = g.title;
+    $('#goal-fill').style.width = (v / g.target) * 100 + '%';
+  }
+  function claimGoal() {
+    advance();
+    const g = E.goal(s);
+    if (!g) { selectTab('journey'); return; }
+    if (g.value(s) < g.target) { toast('Keep going: ' + g.title.toLowerCase() + '.'); return; }
+    const reward = E.claimGoal(s);
+    if (!reward) return;
+    Sound.play('goal');
+    window.WorldView?.reward('+' + num(reward) + ' XP', 'gold');
+    toast('Purpose fulfilled · +' + num(reward) + ' XP', 'gold');
+    save();
+    render();
+  }
+  function dots() {
+    $('#dot-learn').hidden = !(learnNews());
+    $('#dot-people').hidden = !(C.PEOPLE.some(p => personReady(p.id)) || [0, 1, 2].some(i => personReady('local' + i)));
+    $('#dot-journey').hidden = !(E.projectReady(s) || E.projectCanStart(s) || E.ready(s));
+  }
+  function learnNews() {
+    return C.LESSONS.some((l, i) => E.lessonOpen(s, i) && !s.lessons[l.id]) || J.situations.some((q, i) => E.situationOpen(s, i) && !s.situations.includes(i));
+  }
+
+  // ——— The place card ———
+  let cardKey = '';
+  function placeCard() {
+    const i = selected, st = s.stations[i], a = E.ACTIVITIES[i], p = PLACES[i];
+    const owned = st.level > 0;
+    const boost = E.BOOSTS.find(b => b.target === i || b.home === i);
+    const key = [i, owned, st.auto, s.city, boost && s.upgrades.includes(boost.id), buyMode, cardOpen, s.jp >= a.needs[0]].join('|');
+    if (key !== cardKey) {
+      cardKey = key;
+      $('#place-card').innerHTML = owned ? ownedCard(i) : lockedCard(i);
+      bindCard();
+    }
+    syncCard();
+  }
+  let cardOpen = window.innerWidth >= 900;
+  function placeName(i) { return s.jp >= E.ACTIVITIES[i].needs[0] ? E.ACTIVITIES[i].name : E.ACTIVITIES[i].jp; }
+  function strip() {
+    return `<div class="strip" role="tablist" aria-label="Places">${E.ACTIVITIES.map((a, i) => `<button class="strip-place" data-place="${i}" role="tab" aria-label="${esc(placeName(i))}"><span class="strip-icon">${a.icon}</span><small class="strip-status"></small></button>`).join('')}</div>`;
+  }
+  function ownedCard(i) {
+    const st = s.stations[i], a = E.ACTIVITIES[i], p = PLACES[i];
+    const boost = E.BOOSTS.find(b => b.target === i || b.home === i);
+    return `
+      <div class="pc-head">
+        <span class="pc-icon" style="--accent:${a.color}">${a.icon}</span>
+        <div class="pc-title"><small>${esc(p.kicker)} · <span lang="ja">${esc(a.jp)}</span></small><h2>${esc(placeName(i))}</h2></div>
+        <span class="pc-level" id="pc-level"></span>
+      </div>
+      <div class="pc-progress"><i id="pc-fill"></i><span id="pc-verb">${esc(p.verb)}</span><span id="pc-yield"></span></div>
+      <div class="pc-actions">
+        <button class="btn-help" id="pc-help"><span>${esc(p.action)}</span><small id="pc-help-sub">Tap to help</small></button>
+        <button class="btn-improve" id="pc-improve"><span>Improve <em id="pc-qty"></em></span><small id="pc-price"></small></button>
+      </div>
+      <div class="pc-extras">
+        ${st.auto ? `<span class="pc-tag done">∞ Routine running</span>` : `<button class="pc-tag" id="pc-auto"><b>∞ Routine</b><small id="pc-auto-price"></small></button>`}
+        ${boost ? (s.upgrades.includes(boost.id) ? `<span class="pc-tag done">${boost.icon} ${esc(boost.name)}</span>` : `<button class="pc-tag" id="pc-boost" data-upgrade="${boost.id}"><b>${boost.icon} ${esc(boost.name)}</b><small>${esc(boost.desc.replace(/^.* earns? /, ''))} · ${num(boost.cost)}</small></button>`) : ''}
+        <button class="pc-more" id="pc-more" aria-expanded="${cardOpen}" aria-label="${cardOpen ? 'Fewer details' : 'More details'}">${cardOpen ? '⌃' : '⋯'}</button>
+      </div>
+      ${cardOpen ? `<div class="pc-details">
+        <p>${esc(p.purpose)}</p>
+        <p class="pc-mile">${st.auto ? '∞ ' + esc(a.mentor) + ' keeps this going while you are elsewhere.' : '∞ ' + esc(p.auto) + ': this place keeps going while you are elsewhere, and while you are away.'}${boost ? ' ' + boost.icon + ' ' + esc(boost.name) + ': ' + esc(boost.desc) + '.' : ''}</p>
+        <div class="buy-modes" role="group" aria-label="How many levels to buy">${['1', '10', 'max'].map(n => `<button data-mode="${n}" class="${n === buyMode ? 'active' : ''}">${n === 'max' ? 'Max' : '×' + n}</button>`).join('')}</div>
+        <p class="pc-mile" id="pc-mile"></p>
+        <p class="pc-project" id="pc-project" hidden></p>
+      </div>` : ''}
+      ${strip()}`;
+  }
+  function lockedCard(i) {
+    const a = E.ACTIVITIES[i], p = PLACES[i];
+    const names = ['Japanese', 'culture', 'connection'], icons = ['あ', '❀', '♡'];
+    return `
+      <div class="pc-head">
+        <span class="pc-icon locked">${a.icon}</span>
+        <div class="pc-title"><small>${esc(p.kicker)}</small><h2>${esc(placeName(i))}</h2></div>
+        <span class="pc-level">準備中</span>
+      </div>
+      <p class="pc-purpose">${esc(s.jp >= a.needs[0] ? p.purpose : 'You can’t read the sign yet. Learn a little more Japanese to find out what happens here.')}</p>
+      <div class="needs">${a.needs.map((v, k) => v ? `<span class="need" data-need="${k}">${icons[k]} ${v} ${names[k]}</span>` : '').join('')}${i ? `<span class="need" id="need-prev">${esc(PLACES[i - 1].room)} first</span>` : ''}</div>
+      <div class="pc-actions single"><button class="btn-help" id="pc-unlock"><span>Begin here</span><small>${num(a.cost)} XP</small></button></div>
+      ${strip()}`;
+  }
+  function bindCard() {
+    $$('#place-card [data-place]').forEach(b => b.onclick = () => selectPlace(Number(b.dataset.place)));
+    $('#pc-help')?.addEventListener('click', helpTap);
+    $('#pc-improve')?.addEventListener('click', improve);
+    $('#pc-auto')?.addEventListener('click', automate);
+    $('#pc-boost')?.addEventListener('click', e => buyBoost(e.currentTarget.dataset.upgrade));
+    $('#pc-unlock')?.addEventListener('click', unlock);
+    $('#pc-more')?.addEventListener('click', () => { cardOpen = !cardOpen; placeCard(); });
+    $$('#place-card [data-mode]').forEach(b => b.onclick = () => { buyMode = b.dataset.mode; placeCard(); });
+  }
+  function syncCard() {
+    const i = selected, st = s.stations[i], a = E.ACTIVITIES[i];
+    $$('#place-card .strip-place').forEach(b => {
+      const k = Number(b.dataset.place), x = s.stations[k];
+      const ready = !x.level && E.accessible(s, k) && s.xp >= E.ACTIVITIES[k].cost;
+      b.classList.toggle('selected', k === i);
+      b.classList.toggle('locked', !x.level);
+      b.classList.toggle('ready', ready);
+      b.classList.toggle('focus', k === s.focus && x.level > 0);
+      b.querySelector('.strip-status').textContent = x.level ? (x.auto ? '∞' : x.level) : ready ? 'new' : '·';
+    });
+    if (!st.level) {
+      $$('#place-card [data-need]').forEach(el => { const k = Number(el.dataset.need); el.classList.toggle('met', s[['jp', 'culture', 'bonds'][k]] >= a.needs[k]); });
+      $('#need-prev')?.classList.toggle('met', s.stations[i - 1].level > 0);
+      const b = $('#pc-unlock');
+      if (b) b.disabled = !s.started || !E.accessible(s, i) || s.xp < a.cost;
+      return;
+    }
+    const dur = E.duration(s, i), n = E.quantity(s, i, buyMode), qty = buyMode === 'max' ? Math.max(1, n) : Number(buyMode);
+    const price = E.price(s, i, qty);
+    $('#pc-level').textContent = 'Lv ' + st.level;
+    $('#pc-fill').style.width = (st.running ? st.progress / dur : 0) * 100 + '%';
+    $('#pc-yield').textContent = '+' + num(E.payout(s, i)) + ' XP · +' + small(E.sideGain(s, i)) + ' ' + PLACES[i].result;
+    const focused = i === s.focus;
+    $('#pc-verb').textContent = focused ? secs(Math.max(0, dur - st.progress)) + ' · ' + PLACES[i].verb : st.auto ? 'Your routine is running here' : 'Tap Help to work here';
+    $('#pc-help-sub').textContent = focused ? 'Tap to help · +' + E.HELP_SECONDS + 's' : 'Go here and help';
+    $('#pc-qty').textContent = buyMode === 'max' ? '×' + n : buyMode === '10' ? '×10' : '';
+    $('#pc-price').textContent = st.level >= E.MAX_LEVEL ? 'Fully improved' : num(price) + ' XP';
+    $('#pc-improve').disabled = st.level >= E.MAX_LEVEL || n < 1 || s.xp < price;
+    const auto = $('#pc-auto');
+    if (auto) { auto.disabled = s.xp < E.autoCost(i); $('#pc-auto-price').textContent = num(E.autoCost(i)) + ' XP · runs without you'; }
+    const boost = $('#pc-boost');
+    if (boost) { const b = E.BOOSTS.find(x => x.id === boost.dataset.upgrade); boost.disabled = s.xp < b.cost; }
+    const mile = $('#pc-mile');
+    if (mile) {
+      const next = E.nextMark(st.level);
+      mile.textContent = next ? 'Level ' + next + ': production ×2' + ([25, 100].includes(next) ? ' and twice as fast' : '') + '. New things appear at levels 10, 25, 50 and 100.' : 'Every milestone reached.';
+      const task = E.projectProgress(s).find(t => t.i === i);
+      const pj = $('#pc-project');
+      pj.hidden = !s.projectActive || !task;
+      if (task) pj.textContent = 'Helping with “' + E.project(s).name + '”: ' + task.done + ' / ' + task.target + ' ' + task.label;
+    }
+  }
+
+  // ——— Actions ———
+  let lastTap = 0;
+  function helpTap() {
+    if (!s.started) return;
+    if (selected !== s.focus && s.stations[selected].level) { selectPlace(selected); return; }
+    if (Date.now() - lastTap < 80) return;
+    lastTap = Date.now();
+    Sound.unlock();
+    advance();
+    const r = E.assist(s);
+    window.WorldView?.assist();
+    if (r.xp) {
+      window.WorldView?.reward('+' + num(r.xp) + ' XP', 'xp');
+      Sound.play('cycle', s.focus);
+    } else Sound.play('help', s.focus);
+    const b = $('#pc-help');
+    if (b) { b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); }
+    hud();
+    syncCard();
+  }
+  function improve() {
+    advance();
+    const i = selected, before = E.marks(s.stations[i].level), lvl = s.stations[i].level;
+    if (!E.buy(s, i, buyMode === 'max' ? 'max' : buyMode)) return;
+    const after = s.stations[i].level;
+    if (E.marks(after) > before) {
+      Sound.play('milestone');
+      toast('Milestone! ' + placeName(i) + ' now produces twice as much.', 'gold');
+      window.WorldView?.celebrate(i, 'Milestone ×2', 'gold');
+    } else {
+      Sound.play('buy');
+      if ([10, 25, 50, 100].some(m => lvl < m && after >= m)) window.WorldView?.celebrate(i, 'Something new appears', 'gold');
+      else window.WorldView?.celebrate(i, 'Lv ' + after);
+    }
+    save();
+    render();
+  }
+  function automate() {
+    advance();
+    if (!E.automate(s, selected)) return;
+    Sound.play('unlock');
+    toast(PLACES[selected].auto + ' — it keeps going while you are elsewhere.', 'gold');
+    log('A routine took root: ' + PLACES[selected].auto.toLowerCase() + '.');
+    window.WorldView?.celebrate(selected, '∞ Routine', 'gold');
+    save();
+    render();
+  }
+  function buyBoost(id) {
+    advance();
+    if (!E.upgrade(s, id)) return;
+    const b = E.BOOSTS.find(x => x.id === id);
+    Sound.play('unlock');
+    toast(b.name + ': ' + b.desc + '.', 'gold');
+    window.WorldView?.celebrate(selected, b.icon + ' ' + b.name, 'gold');
+    save();
+    render();
+  }
+  function unlock() {
+    advance();
+    const i = selected;
+    if (!E.buy(s, i, '1')) return;
+    E.start(s, i);
+    Sound.play('unlock');
+    log('A new part of life: ' + E.ACTIVITIES[i].name.toLowerCase() + '.');
+    window.WorldView?.celebrate(i, 'Open!', 'gold');
+    toast(E.ACTIVITIES[i].name + ' is open. You head over.', 'gold');
+    save();
+    render();
+  }
+  function selectPlace(i) {
+    if (!Number.isInteger(i) || i < 0 || i > 7) return;
+    advance();
+    if (selected !== i) Sound.play('page');
+    selected = i;
+    if (s.stations[i].level && s.started) E.start(s, i);
+    if (tab !== 'town') selectTab('town');
+    if (window.WorldView?.mode() === 'town' && window.innerWidth < 900) { window.WorldView.setMode('close'); viewToggleLabel(); }
+    save();
+    render();
+  }
+
+  // ——— Tabs ———
+  function selectTab(t) {
+    tab = t;
+    document.body.dataset.tab = t;
+    $$('.tabs [data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+    $('#panel').hidden = t === 'town';
+    render();
+    if (t !== 'town') $('#panel').scrollTop = 0;
+  }
+  function render() {
+    hud();
+    placeCard();
+    if (tab !== 'town') window.App.panels[tab]?.($('#panel-inner'));
+  }
+  function viewToggleLabel() {
+    const town = window.WorldView?.mode() === 'town';
+    const b = $('#view-toggle');
+    b.textContent = town ? '⌖' : '⤢';
+    b.title = town ? 'Look inside the current place' : 'See the whole neighborhood';
+    b.setAttribute('aria-label', b.title);
+  }
+
+  // ——— Neighbors and local leaders ———
+  function local(i) { return E.CITIES[s.city].locals[i]; }
+  function personReady(id) {
+    if (!s.started) return false;
+    if (id.startsWith('local')) {
+      const i = Number(id.slice(5)), e = s.elders[i];
+      if (!e || !E.localPresent(s, i)) return false;
+      return !e.met || e.read < e.training || (e.training === 3 && !e.appointed);
+    }
+    return s.city === 0 && E.storyReady(s, id);
+  }
+  function personInfo(id) {
+    if (id.startsWith('local')) {
+      const i = Number(id.slice(5)), l = local(i), e = s.elders[i];
+      return { key: id + s.city + e.met + e.read + e.training, seal: l.seal, color: l.color, badge: !e.met ? '!' : '✦', label: (e.met ? 'Talk with ' : 'Meet ') + l.name };
+    }
+    return { key: id, portrait: true, badge: '✦', label: 'A story with ' + E.person(id).name };
+  }
+  function visit(id) {
+    advance();
+    Sound.unlock();
+    if (id.startsWith('local')) return talkLocal(Number(id.slice(5)));
+    const p = E.person(id);
+    if (!p) return;
+    if (s.jp < p.needs) { toast('Learn a little more Japanese to meet ' + p.name + ' (' + p.needs + ' insight).'); return; }
+    if (E.storyReady(s, id)) return story(id);
+    const wait = E.visitWait(s, id);
+    if (wait > 0) { toast(p.name + ' is busy. Come back in ' + wait + 's.'); return; }
+    const moment = E.visit(s, id);
+    if (!moment) return;
+    Sound.play('open');
+    save();
+    const far = s.city !== 0;
+    openModal({
+      label: p.name,
+      html: `<div class="who">${portrait(id, 'who-portrait')}<div><small>${esc(p.role)}</small><h2>${esc(p.name)}</h2></div></div>
+        ${far ? '<p class="aside">A weekend back in Hanamimachi.</p>' : ''}
+        <p class="moment">${esc(moment.text)}</p>
+        <div class="gains">${chips({ bonds: moment.bonds })}</div>
+        <p class="aside">${nextStoryHint(id)}</p>
+        <button class="btn-primary" data-close>Until next time</button>`,
+      bind: el => el.querySelector('[data-close]').onclick = closeModal
+    });
+  }
+  function nextStoryHint(id) {
+    const stage = s.stories[id] || 0;
+    if (stage >= 4) return 'You have shared all of ' + E.person(id).name + '’s stories. The friendship goes on.';
+    return 'Next story at ' + C.STORY_AT[stage] + ' connection (you have ' + Math.floor(s.bonds) + ').';
+  }
+  // Japanese phrase with as much meaning as you can follow.
+  function phrase(jp, en, at) {
+    const words = C.WORDS.map((w, i) => ({ w, i })).filter(x => jp.includes(x.w[0]));
+    const known = words.filter(x => s.learned.includes(x.i) || s.jp >= x.w[3]);
+    const full = s.jp >= at || (words.length && known.length === words.length);
+    return `<div class="phrase"><span lang="ja">${esc(jp)}</span><small>${full ? esc(en) : known.length ? 'You catch: ' + known.map(x => '<b>' + esc(x.w[0]) + '</b> “' + esc(x.w[2].toLowerCase()) + '”').join(', ') : 'The words are still unfamiliar. The warmth is not.'}</small></div>`;
+  }
+  function story(id) {
+    const p = E.person(id), stage = s.stories[id] || 0, st = C.stories[id][stage];
+    const echo = E.storyEcho(s, id, stage);
+    Sound.play('story');
+    openModal({
+      label: st.title, cls: 'story',
+      html: `<div class="who">${portrait(id, 'who-portrait')}<div><small>${esc(p.role)} · story ${stage + 1} of 4</small><h2>${esc(p.name)}</h2></div></div>
+        ${s.city !== 0 ? '<p class="aside">A weekend back in Hanamimachi.</p>' : ''}
+        <h3 class="story-title">${esc(st.title)}</h3>
+        ${phrase(st.jp, st.en, st.at)}
+        ${echo ? `<p class="echo">${esc(echo)}</p>` : ''}
+        <p class="story-text">${esc(st.text)}</p>
+        <div class="choices">${st.choices.map((c, i) => `<button class="choice" data-choice="${i}">${esc(c)}<small>${chips(st.gains?.[i] || {})}</small></button>`).join('')}</div>`,
+      bind: el => el.querySelectorAll('[data-choice]').forEach(b => b.onclick = () => {
+        advance();
+        const r = E.chooseStory(s, id, Number(b.dataset.choice));
+        if (!r) return;
+        log(p.name + ' · ' + st.title + ' — ' + r.response, 'story');
+        Sound.play('correct');
+        save();
+        const done = (s.stories[id] || 0) >= 4;
+        setModal(`<div class="who">${portrait(id, 'who-portrait')}<div><small>${esc(p.role)}</small><h2>${esc(p.name)}</h2></div></div>
+          <h3 class="story-title">${esc(st.title)}</h3>
+          <p class="story-text response">${esc(r.response)}</p>
+          <div class="note"><b>Culture note</b><p>${esc(st.note)}</p></div>
+          <div class="gains">${chips({ ...r.gains, xp: r.xp })}</div>
+          ${done ? `<div class="note gold"><b>A lasting friendship</b><p>${esc(p.partner)}.</p></div>` : `<p class="aside">${nextStoryHint(id)}</p>`}
+          <button class="btn-primary" data-close>Carry this with you</button>`, el2 => el2.querySelector('[data-close]').onclick = closeModal);
+      })
+    });
+  }
+  function talkLocal(i) {
+    const l = local(i), e = s.elders[i];
+    if (!E.localPresent(s, i)) { toast('You haven’t met ' + l.name + ' yet. They spend time at the ' + PLACES[E.LOCAL_PLACE[i]].room.toLowerCase() + '.'); return; }
+    const head = `<div class="who">${seal(l, 'who-seal')}<div><small>${esc(l.role)}</small><h2>${esc(l.name)} <span lang="ja" class="jp-name">${esc(l.jp)}</span></h2></div></div>`;
+    if (!e.met) {
+      E.meetLocal(s, i);
+      log('Met ' + l.name + '. ' + l.meet, 'local');
+      Sound.play('story');
+      save();
+      openModal({ label: l.name, cls: 'story', html: head + `<p class="story-text">${esc(l.meet)}</p><p class="aside">${esc(l.bio)}</p><div class="gains">${chips({ bonds: 3 })}</div><p class="aside">When the table is open, you can begin mentoring ${esc(l.name)} from the People tab.</p><button class="btn-primary" data-close>Glad to know you</button>`, bind: el => el.querySelector('[data-close]').onclick = closeModal });
+      return;
+    }
+    if (e.read < e.training) {
+      const text = l.stages[e.read];
+      E.readElder(s, i);
+      log(l.name + ': ' + text, 'local');
+      Sound.play('story');
+      save();
+      const stageName = ['Listening and character', 'Shared care', 'Teaching and discernment'][e.read - 1];
+      openModal({ label: l.name, cls: 'story', html: head + `<small class="kicker">Mentoring · ${stageName}</small><p class="story-text">${esc(text)}</p><p class="aside">${e.training < 3 ? 'You can begin the next stage of mentoring in the People tab.' : 'Pray, and when the time is right, appoint ' + esc(l.name) + ' as an elder.'}</p><button class="btn-primary" data-close>Continue</button>`, bind: el => el.querySelector('[data-close]').onclick = closeModal });
+      return;
+    }
+    if (e.training === 3 && !e.appointed) return appointLocal(i);
+    selectTab('people');
+  }
+  function appointLocal(i) {
+    const l = local(i);
+    openModal({
+      label: 'Appoint ' + l.name, cls: 'story',
+      html: `<div class="who">${seal(l, 'who-seal')}<div><small>${esc(l.role)}</small><h2>${esc(l.name)}</h2></div></div>
+        <p class="story-text">The church gathers. Some people pray aloud; most pray quietly. Hands are laid gently on ${esc(l.name)}’s shoulders. Nobody is pretending this is a promotion. It is a trust.</p>
+        <p class="aside">Elders care for the church and its people. Their value is not measured by anything in this game.</p>
+        <button class="btn-primary" id="appoint-yes">Appoint ${esc(l.name)} as an elder</button>
+        <button class="btn-quiet" data-close>Not yet</button>`,
+      bind: el => {
+        el.querySelector('[data-close]').onclick = closeModal;
+        el.querySelector('#appoint-yes').onclick = () => {
+          advance();
+          if (!E.appoint(s, i)) return;
+          log(l.name + ' was appointed as an elder. ' + l.appoint, 'elder');
+          Sound.play('elder');
+          save();
+          setModal(`<div class="who">${seal(l, 'who-seal')}<div><small>An elder of the ${esc(E.CITIES[s.city].district)} church</small><h2>${esc(l.name)}</h2></div></div><p class="story-text">${esc(l.appoint)}</p><div class="gains"><span class="gain gain-${['jp', 'culture', 'bonds'][i]}">+20% ${['Japanese', 'culture', 'connection'][i]} gains while you are here</span></div><button class="btn-primary" data-close>Amen</button>`, el2 => el2.querySelector('[data-close]').onclick = closeModal);
+        };
+      }
+    });
+  }
+  function mentor(i) {
+    advance();
+    if (!E.train(s, i)) return;
+    Sound.play('open');
+    toast('Mentoring ' + local(i).name + ' has begun. It takes time — like real mentoring.');
+    save();
+    render();
+  }
+
+  // ——— Lessons ———
+  function voice() { return window.speechSynthesis?.getVoices?.().find(v => v.lang?.startsWith('ja')); }
+  function speak(text) {
+    const v = voice();
+    if (!v) { toast('No Japanese voice is installed on this device.'); return; }
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP';
+    u.voice = v;
+    u.rate = 0.8;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function lesson(index) {
+    if (!E.lessonOpen(s, index)) return;
+    const L = C.LESSONS[index];
+    const words = shuffle([...L.words]).slice(0, 6);
+    const canListen = !!voice();
+    const qs = words.map((w, n) => {
+      const type = canListen && n === 4 ? 'listen' : n % 2 ? 'reverse' : 'meaning';
+      const others = shuffle(C.WORDS.map((_, i) => i).filter(i => i !== w && C.WORDS[i][2] !== C.WORDS[w][2])).slice(0, 2);
+      return { w, type, options: shuffle([w, ...others]) };
+    });
+    let q = 0, mistakes = 0, wrongHere = new Set();
+    Sound.play('open');
+    function question() {
+      const Q = qs[q], W = C.WORDS[Q.w];
+      const prompt = Q.type === 'reverse'
+        ? `<div class="prompt en">${esc(W[2])}</div><small class="prompt-sub">Which is the Japanese?</small>`
+        : Q.type === 'listen'
+          ? `<button class="listen big" data-say="${esc(W[0])}">▷ Listen</button><small class="prompt-sub">What did you hear?</small>`
+          : `<div class="prompt" lang="ja">${esc(W[0])}</div><small class="prompt-sub">${esc(W[1])} · <button class="listen" data-say="${esc(W[0])}">▷</button></small>`;
+      setModal(`<small class="kicker">Lesson · ${esc(L.title)} · <span lang="ja">${esc(L.jp)}</span></small>
+        <div class="dots">${qs.map((_, n) => `<i class="${n < q ? 'done' : n === q ? 'now' : ''}"></i>`).join('')}</div>
+        ${prompt}
+        <div class="options">${Q.options.map(o => `<button class="option" data-option="${o}" ${wrongHere.has(o) ? 'disabled' : ''}>${Q.type === 'reverse' ? `<span lang="ja">${esc(C.WORDS[o][0])}</span><small>${esc(C.WORDS[o][1])}</small>` : esc(C.WORDS[o][2])}</button>`).join('')}</div>
+        <p class="feedback" id="feedback">${mistakes ? 'Mistakes are how this works. No penalty.' : 'Take your time.'}</p>`, el => {
+        el.querySelectorAll('[data-say]').forEach(b => b.onclick = () => speak(b.dataset.say));
+        if (Q.type === 'listen') speak(W[0]);
+        el.querySelectorAll('[data-option]').forEach(b => b.onclick = () => {
+          const o = Number(b.dataset.option);
+          if (o !== Q.w) {
+            mistakes++;
+            wrongHere.add(o);
+            b.disabled = true;
+            b.classList.add('wrong');
+            Sound.play('wrong');
+            el.querySelector('#feedback').textContent = 'Not quite — that one means “' + C.WORDS[o][2] + '”.';
+            return;
+          }
+          b.classList.add('right');
+          Sound.play('correct');
+          el.querySelectorAll('[data-option]').forEach(x => x.disabled = true);
+          el.querySelector('#feedback').innerHTML = `<b lang="ja">${esc(W[0])}</b> · ${esc(W[1])} · ${esc(W[2])}`;
+          setTimeout(() => { q++; wrongHere = new Set(); q < qs.length ? question() : finish(); }, 700);
+        });
+      });
+    }
+    function finish() {
+      advance();
+      const r = E.finishLesson(s, index, mistakes);
+      if (!r) return closeModal();
+      Sound.play('lesson');
+      if (r.first) log('Finished the lesson “' + L.title + '.”', 'lesson');
+      save();
+      setModal(`<small class="kicker">Lesson complete</small><h2>${esc(L.title)}</h2>
+        <div class="stars" aria-label="${r.stars} of 3 stars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>
+        <p class="aside">${r.stars === 3 ? 'Perfect — not a single slip.' : 'Every mistake was a step. Try again any time for more stars.'}</p>
+        <div class="gains">${chips({ jp: r.jp, xp: r.xp })}</div>
+        ${r.newWords.length ? `<div class="word-chips">${r.newWords.map(w => `<span><b lang="ja">${esc(C.WORDS[w][0])}</b> ${esc(C.WORDS[w][2])}</span>`).join('')}</div>` : ''}
+        <button class="btn-primary" data-close>Done</button>
+        <button class="btn-quiet" data-again>Practice again</button>`, el => {
+        el.querySelector('[data-close]').onclick = closeModal;
+        el.querySelector('[data-again]').onclick = () => { closeModal(); lesson(index); };
+      });
+    }
+    openModal({ label: 'Lesson: ' + L.title, cls: 'lesson-modal', html: '', bind: question });
+  }
+  function situation(i, answer, button) {
+    advance();
+    const q = J.situations[i];
+    if (answer !== q.answer) {
+      button?.classList.add('wrong');
+      if (button) button.disabled = true;
+      Sound.play('wrong');
+      return false;
+    }
+    if (!E.solveSituation(s, i, answer)) return false;
+    Sound.play('lesson');
+    log('Understood: ' + q.jp + ' — ' + q.options[q.answer], 'lesson');
+    toast('Understood! ' + q.note, 'gold');
+    save();
+    render();
+    return true;
+  }
+
+  // ——— Community projects and the handover ———
+  function projectAction() {
+    advance();
+    if (E.projectReady(s)) {
+      const p = E.claimProject(s);
+      log(p.name + '. ' + p.done, 'project');
+      Sound.play('milestone');
+      save();
+      render();
+      openModal({
+        label: p.name, cls: 'story',
+        html: `<small class="kicker">A project completed together</small><h2>${esc(p.name)}</h2><p class="story-text">${esc(p.done)}</p>
+          <div class="gains">${chips({ xp: p.xp, [p.side]: p.amount })}<span class="gain gain-gold">+15% production in ${esc(E.CITIES[s.city].name)}</span></div>
+          <p class="aside">You’ll see it in the neighborhood.</p><button class="btn-primary" data-close>See what comes next</button>`,
+        bind: el => el.querySelector('[data-close]').onclick = () => { closeModal(); if (window.innerWidth < 900) selectTab('town'); }
+      });
+    } else if (E.startProject(s)) {
+      Sound.play('open');
+      toast('Project begun. Work at the places it needs.', 'gold');
+      save();
+      render();
+    }
+  }
+  function entrust() {
+    advance();
+    if (!E.ready(s)) return;
+    const city = E.CITIES[s.city], gain = E.legacyGain(s);
+    const names = s.elders.map((e, i) => e.appointed ? local(i).name : null).filter(Boolean);
+    const dest = E.destinations(s);
+    openModal({
+      label: 'Entrust the church', cls: 'story wide',
+      html: `<small class="kicker">Entrust the church</small><h2>The light stays on in ${esc(city.name)}.</h2>
+        <p class="story-text">${esc(names.join(' and '))} will care for the church as local elders. ${esc(city.letter)}</p>
+        <div class="note gold"><b>You carry: ${esc(city.gift)}</b><p>${esc(city.effect)}</p><p>+${gain} experience root${gain > 1 ? 's' : ''} (+50% permanent XP each) · this church keeps supporting you · ×2 production for every church entrusted · all your Japanese, culture and friendships.</p></div>
+        <h3>${dest[0] === -1 ? 'The five-city journey is complete.' : 'Where will you go next?'}</h3>
+        <div class="destinations">${dest[0] === -1
+          ? '<button class="destination" data-dest="-1"><b>Entrust this church and finish the journey</b><span>Your neighborhood stays yours to enjoy afterward.</span></button>'
+          : dest.map(i => `<button class="destination" data-dest="${i}" style="--accent:${E.CITIES[i].color}"><b>${esc(E.CITIES[i].name)} <span lang="ja">${esc(E.CITIES[i].jp)}</span></b><span>${esc(E.CITIES[i].season)}</span><em>${esc(E.CITIES[i].theme)}</em><small>${esc(E.CITIES[i].tag)}</small></button>`).join('')}</div>
+        <p class="aside">${dest[0] === -1 ? '' : 'Places, routines, equipment and projects begin again in the new city. Your learning, friendships and churches stay with you.'}</p>
+        <button class="btn-quiet" data-close>Stay a little longer</button>`,
+      bind: el => {
+        el.querySelector('[data-close]').onclick = closeModal;
+        el.querySelectorAll('[data-dest]').forEach(b => b.onclick = () => {
+          advance();
+          const d = Number(b.dataset.dest), from = s.city;
+          const gained = E.prestige(s, d);
+          if (!gained) return;
+          log('The church in ' + E.CITIES[from].name + ' was entrusted to ' + names.join(' and ') + '. ' + E.CITIES[from].letter, 'church');
+          if (d >= 0) {
+            E.start(s, 0);
+            selected = 0;
+            cardKey = '';
+          }
+          save();
+          closeModal();
+          selectTab('town');
+          window.WorldView?.setMode('close');
+          if (E.complete(s)) finale();
+          else arrival();
+        });
+      }
+    });
+  }
+  function arrival() {
+    const city = E.CITIES[s.city];
+    Sound.play('city');
+    log('Arrived in ' + city.name + '. ' + city.arrival, 'city');
+    save();
+    openModal({
+      label: city.name, cls: 'story city',
+      html: `<small class="kicker">${esc(city.season)}</small><h2>${esc(city.name)} <span lang="ja" class="jp-name">${esc(city.jp)}</span></h2>
+        <p class="theme">${esc(city.theme)}</p><p class="story-text">${esc(city.arrival)}</p>
+        <p class="aside">${esc(city.district)} · ${esc(city.tag)}. You begin again in a small apartment — but you are not the person who arrived in Tokyo.</p>
+        <button class="btn-primary" data-close>Unpack</button>`,
+      bind: el => el.querySelector('[data-close]').onclick = closeModal
+    });
+  }
+  function finale() {
+    s.finaleSeen = true;
+    save();
+    let n = 0;
+    const cards = J.finale;
+    Sound.play('city');
+    function card() {
+      if (n < cards.length) {
+        const c = cards[n];
+        setModal(`<small class="kicker">A Little Light · ${n + 1} / ${cards.length}</small><h2>${esc(c.title)}</h2><p class="story-text">${esc(c.text)}</p><button class="btn-primary" data-next>${n < cards.length - 1 ? 'Continue' : 'One more thing'}</button>`, el => el.querySelector('[data-next]').onclick = () => { n++; Sound.play('page'); card(); });
+        return;
+      }
+      const elders = s.plants.reduce((k, p) => k + p.elders.length, 0);
+      const stories = Object.values(s.stories).reduce((k, v) => k + v, 0);
+      setModal(`<small class="kicker">The end of the first journey</small><h2>“Will you stay for tea?”</h2>
+        <div class="ending-stats"><span><b>5</b>churches entrusted</span><span><b>${elders}</b>local elders</span><span><b>${s.learned.length}</b>words learned</span><span><b>${stories}</b>stories shared</span></div>
+        <p class="story-text">The neighborhood is still here. The kettle is still on. You can stay as long as you like.</p>
+        <button class="btn-primary" data-close>Stay a while</button>`, el => el.querySelector('[data-close]').onclick = closeModal);
+    }
+    openModal({ label: 'The end of the journey', cls: 'story finale', closable: false, html: '', bind: card });
+  }
+
+  // ——— Settings ———
+  function settings() {
+    openModal({
+      label: 'Settings',
+      html: `<small class="kicker">Your life in Japan</small><h2>Settings</h2>
+        <div class="profile">${portrait('player', 'who-portrait')}<div>
+          <label for="profile-name">Your name</label><input id="profile-name" maxlength="24" value="${esc(s.name)}" autocomplete="off">
+          <div class="coats" role="group" aria-label="Jacket colour">${COATS.map(([c, n]) => `<button data-coat="${c}" style="--c:${c}" class="${s.coat === c ? 'chosen' : ''}" aria-label="${n} jacket"></button>`).join('')}</div>
+        </div></div>
+        <div class="toggles">
+          <label><input type="checkbox" id="opt-sound" ${s.sound ? 'checked' : ''}> Sound</label>
+          <label><input type="checkbox" id="opt-clock" ${s.clock === 'local' ? 'checked' : ''}> Follow my clock (evenings bring lamplight)</label>
+          <label><input type="checkbox" id="opt-low" ${s.quality === 'low' ? 'checked' : ''}> Battery saver</label>
+          <label><input type="checkbox" id="opt-motion" ${s.reducedMotion ? 'checked' : ''}> Reduce motion</label>
+        </div>
+        <h3>Your progress</h3>
+        <p class="aside">Saved automatically in this browser. Your current place and routines keep going for up to 8 hours while you are away. Backups move your game between devices.</p>
+        <div class="row"><button class="btn-quiet" id="opt-export">Export backup</button><button class="btn-quiet" id="opt-import">Import backup</button></div>
+        <p class="aside">${num(s.total)} lifetime XP · chapter ${s.chapters + 1} · ${s.learned.length} words · ${Math.floor(s.time / 3600)}h ${Math.floor((s.time % 3600) / 60)}m of life in Japan${storageOK ? '' : ' · <b>Storage unavailable — export a backup.</b>'}</p>
+        <div class="row"><button class="btn-quiet" id="opt-help">How to play</button><button class="btn-quiet danger" id="opt-reset">Start over…</button></div>`,
+      bind: el => {
+        el.querySelector('#profile-name').onchange = e => { s.name = e.target.value.trim().slice(0, 24) || 'Friend'; save(); };
+        el.querySelectorAll('[data-coat]').forEach(b => b.onclick = () => { s.coat = b.dataset.coat; el.querySelectorAll('[data-coat]').forEach(x => x.classList.toggle('chosen', x === b)); save(); });
+        el.querySelector('#opt-sound').onchange = e => { s.sound = e.target.checked; Sound.enabled = s.sound; Sound.play('goal'); save(); };
+        el.querySelector('#opt-clock').onchange = e => { s.clock = e.target.checked ? 'local' : 'day'; save(); hud(); };
+        el.querySelector('#opt-low').onchange = e => { s.quality = e.target.checked ? 'low' : 'auto'; save(); };
+        el.querySelector('#opt-motion').onchange = e => { s.reducedMotion = e.target.checked; document.body.classList.toggle('reduce-motion', s.reducedMotion); save(); };
+        el.querySelector('#opt-export').onclick = exportSave;
+        el.querySelector('#opt-import').onclick = () => $('#import-file').click();
+        el.querySelector('#opt-help').onclick = () => { closeModal(); help(); };
+        el.querySelector('#opt-reset').onclick = () => setModal(`<h2>Start from the beginning?</h2><p>This replaces your current life in Japan. Export a backup first if you want to keep it.</p><div class="row"><button class="btn-quiet" id="keep">Keep my game</button><button class="btn-primary danger" id="reset">Start over</button></div>`, el2 => {
+          el2.querySelector('#keep').onclick = () => { closeModal(); settings(); };
+          el2.querySelector('#reset').onclick = () => {
+            s = E.fresh();
+            selected = 0;
+            cardKey = '';
+            last = Date.now();
+            document.body.classList.remove('reduce-motion');
+            save();
+            closeModal();
+            selectTab('town');
+            intro();
+          };
+        });
+      }
+    });
+  }
+  function exportSave() {
+    save();
+    const a = document.createElement('a'), url = URL.createObjectURL(new Blob([JSON.stringify(s, null, 1)], { type: 'application/json' }));
+    a.href = url;
+    a.download = 'little-light-save.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Backup exported.');
+  }
+  $('#import-file').onchange = async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 400000) throw Error('That file is too large to be a save.');
+      const raw = JSON.parse(await file.text());
+      const imported = raw.version === 1 ? E.migrate(raw) : E.hydrate(raw);
+      closeModal();
+      openModal({
+        label: 'Restore backup',
+        html: `<h2>Restore this life?</h2><p>Replace your current progress with a save in ${esc(E.CITIES[imported.city].name)}, ${num(imported.total)} lifetime XP and ${num(imported.jp)} Japanese insight?</p><div class="row"><button class="btn-quiet" data-close>Cancel</button><button class="btn-primary" id="restore">Restore</button></div>`,
+        bind: el => {
+          el.querySelector('[data-close]').onclick = closeModal;
+          el.querySelector('#restore').onclick = () => {
+            s = imported;
+            s.revision = E.REVISION;
+            Sound.enabled = s.sound;
+            document.body.classList.toggle('reduce-motion', s.reducedMotion);
+            selected = s.focus;
+            cardKey = '';
+            last = Date.now();
+            E.resume(s);
+            closeModal();
+            away(Math.max(0, (Date.now() - s.last) / 1000));
+            save();
+            render();
+            if (!s.started) intro();
+          };
+        }
+      });
+    } catch (error) { toast('Could not import: ' + error.message); }
+  };
+
+  function help() {
+    openModal({
+      label: 'How to play',
+      html: `<small class="kicker">How to play</small><h2>Choose a place. Do the work. Make room.</h2>
+        <p><b>Your character</b> works at one place at a time and repeats it on their own. Tap <b>Help</b> (or your character) to speed up the task in front of them. Each completed task earns experience (XP) and some Japanese, culture or connection.</p>
+        <p><b>Improve</b> places with XP. New furniture and decorations appear at levels 10, 25, 50 and 100; production doubles at 25, 50, 100 and beyond.</p>
+        <p><b>Routines</b> keep a place going while you are somewhere else — and while you are away, for up to 8 hours.</p>
+        <p><b>Learn</b> Japanese with short lessons and everyday situations. As you learn, signs and conversations become readable, and new places open.</p>
+        <p><b>People</b> have stories to share as your connection grows. Your choices are remembered. In each city you will meet three local people; mentor them, and appoint two as elders.</p>
+        <p><b>Journey:</b> finish three community projects, keep the table open with a routine, appoint two elders, and grow enough to entrust the church — then begin again in a new city. Five cities make the journey.</p>
+        <p class="aside">The town follows your clock — lamps come on in the evening. Drag to look around; pinch or scroll to zoom; ⤢ shows the whole neighborhood.</p>
+        <p class="aside">Neighborhoods and people are fictional. XP measures progress in a game, not anyone’s worth.</p>
+        <button class="btn-primary" data-close>Got it</button>`,
+      bind: el => el.querySelector('[data-close]').onclick = closeModal
+    });
+  }
+
+  function intro() {
+    openModal({
+      label: 'Welcome', cls: 'story intro', closable: false,
+      html: `${portrait('player', 'intro-portrait')}
+        <small class="kicker">A Little Light · 小さな光</small>
+        <h2>You’ve arrived in Tokyo.</h2>
+        <p class="story-text">A small apartment in Hanamimachi. A handful of words. A street full of people you haven’t met yet.</p>
+        <p>Your character studies, shops, shares tea and cooks — and keeps going on their own. Tap to help with whatever is in front of them. Learn the language, make friends, and someday entrust a church to the people who belong here.</p>
+        <label for="your-name">Your name</label><input id="your-name" maxlength="24" value="${esc(s.name)}" autocomplete="off">
+        <div class="coats" role="group" aria-label="Jacket colour">${COATS.map(([c, n]) => `<button data-coat="${c}" style="--c:${c}" class="${s.coat === c ? 'chosen' : ''}" aria-label="${n} jacket"></button>`).join('')}</div>
+        <button class="btn-primary" id="begin">Unpack and start studying</button>`,
+      bind: el => {
+        el.querySelectorAll('[data-coat]').forEach(b => b.onclick = () => { s.coat = b.dataset.coat; el.querySelectorAll('[data-coat]').forEach(x => x.classList.toggle('chosen', x === b)); });
+        el.querySelector('#begin').onclick = () => {
+          s.name = el.querySelector('#your-name').value.trim().slice(0, 24) || 'Friend';
+          s.started = true;
+          s.sound = true;
+          Sound.enabled = true;
+          Sound.play('city');
+          E.start(s, 0);
+          last = Date.now();
+          log('I arrived with a suitcase and began learning the words for a new life.', 'city');
+          save();
+          closeModal();
+          toast('Your character is studying. Tap Help to write the next kana.');
+        };
+      }
+    });
+  }
+  function whatsNew() {
+    openModal({
+      label: 'What’s new', cls: 'story',
+      html: `<small class="kicker">Welcome back</small><h2>The neighborhood has grown.</h2>
+        <p>Your progress is safe. Since you were last here:</p>
+        <ul class="news"><li>A rebuilt town with real streets, signs you learn to read, a passing train and lamplight in the evening.</li><li>Ten Japanese lessons, a kana notebook that fills as you study, and city dialects.</li><li>Your story choices are now remembered. Each city has three local people to meet and mentor.</li><li>A rebalanced journey, a proper ending, sound, and Add to Home Screen.</li></ul>
+        <p class="aside">The economy was rebalanced, so numbers may look different from before.</p>
+        <button class="btn-primary" data-close>Let’s go</button>`,
+      bind: el => el.querySelector('[data-close]').onclick = closeModal
+    });
+  }
+
+  function away(seconds) {
+    if (!s.started || seconds < 60) { E.step(s, seconds); return; }
+    const before = { xp: s.xp, jp: s.jp, culture: s.culture, bonds: s.bonds, cycles: s.cycles };
+    E.step(s, seconds);
+    const capped = seconds > E.OFFLINE_CAP;
+    const mins = Math.floor(Math.min(seconds, E.OFFLINE_CAP) / 60);
+    const span = mins >= 60 ? Math.floor(mins / 60) + ' hours' + (mins % 60 ? ' ' + (mins % 60) + ' minutes' : '') : mins + ' minutes';
+    const lines = ['The kettle was on when you got back.', 'Someone had left a note under your door: お帰りなさい — welcome home.', 'Mrs. Sato watered your plant. She mentions this twice.', 'The street sounds the same as when you left. That is a comfort.', 'A neighbor waved from a balcony. You waved back.'];
+    openModal({
+      label: 'While you were away', cls: 'story',
+      html: `<small class="kicker">While you were away · ${span}${capped ? ' (8-hour limit)' : ''}</small><h2>Life kept going.</h2>
+        <p class="story-text">${esc(lines[Math.floor(Math.random() * lines.length)])} ${s.stations.some(x => x.auto) ? 'Your routines carried on without you.' : 'Your character kept at it; routines let more places run at once.'}</p>
+        <div class="gains big">${chips({ xp: s.xp - before.xp, jp: +(s.jp - before.jp).toFixed(1), culture: +(s.culture - before.culture).toFixed(1), bonds: +(s.bonds - before.bonds).toFixed(1) })}</div>
+        <button class="btn-primary" data-close>Good to be back</button>`,
+      bind: el => el.querySelector('[data-close]').onclick = closeModal
+    });
+  }
+
+  // ——— Watching for moments worth mentioning ———
+  const seen = { level: E.language(s), ready: new Set(), unlockable: new Set(), cycles: s.stations.map(x => x.cycles), elders: s.elders.map(e => e.training) };
+  function watch() {
+    const lv = E.language(s);
+    if (lv > seen.level) {
+      Sound.play('milestone');
+      toast('Japanese: ' + E.LANGUAGE_NAMES[lv] + '. More of the town makes sense.', 'gold');
+      log('My Japanese reached a new stage: ' + E.LANGUAGE_NAMES[lv].toLowerCase() + '.', 'lesson');
+      cardKey = '';
+    }
+    seen.level = lv;
+    for (const p of [...C.PEOPLE.map(x => x.id), 'local0', 'local1', 'local2']) {
+      const r = personReady(p);
+      const key = p + (p.startsWith('local') ? s.city + ':' + s.elders[Number(p.slice(5))].read + s.elders[Number(p.slice(5))].met : s.stories[p] || 0);
+      if (r && !seen.ready.has(key)) {
+        seen.ready.add(key);
+        const name = p.startsWith('local') ? local(Number(p.slice(5))).name : E.person(p).name;
+        if (s.started && !modalOpen) toast(name + ' has something to share. Tap them in town.');
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const k = s.city + ':' + i;
+      if (!s.stations[i].level && E.accessible(s, i) && s.xp >= E.ACTIVITIES[i].cost && !seen.unlockable.has(k)) {
+        seen.unlockable.add(k);
+        if (s.started && i > 0) toast('A new place is ready to open: ' + placeName(i) + '.', 'gold');
+      }
+    }
+    s.elders.forEach((e, i) => {
+      if (e.training > seen.elders[i] && s.started) toast('Mentoring with ' + local(i).name + ': a conversation is waiting.', 'gold');
+      seen.elders[i] = e.training;
+    });
+    // Little bursts of feedback as routines complete their work.
+    s.stations.forEach((st, i) => {
+      if (st.cycles > seen.cycles[i] && st.level) {
+        if (i === s.focus) window.WorldView?.reward('+' + num(E.payout(s, i) * (st.cycles - seen.cycles[i])) + ' XP', 'xp');
+        else if (st.auto && Math.random() < 0.35) window.WorldView?.celebrate(i, '+' + num(E.payout(s, i)), 'xp small');
+      }
+      seen.cycles[i] = st.cycles;
+    });
+  }
+
+  // ——— Wiring ———
+  $$('[data-tab]').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+  $('#goal-chip').onclick = claimGoal;
+  $('#settings-btn').onclick = settings;
+  $('#hud-xp').onclick = () => toast('Experience: ' + num(s.xp) + ' · lifetime ' + num(s.total) + ' · ×' + E.global(s).toFixed(2) + ' from everything you have grown.');
+  $('#view-toggle').onclick = () => { window.WorldView?.toggle(); viewToggleLabel(); Sound.play('page'); };
+  document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
+  document.addEventListener('keydown', e => {
+    const m = $('.modal');
+    if (m) {
+      if (e.key === 'Escape' && m.querySelector('.modal-close')) closeModal();
+      if (e.key === 'Tab') {
+        const els = [...m.querySelectorAll('button:not(:disabled), input')];
+        if (!els.length) return;
+        if (e.shiftKey && document.activeElement === els[0]) { e.preventDefault(); els[els.length - 1].focus(); }
+        else if (!e.shiftKey && document.activeElement === els[els.length - 1]) { e.preventDefault(); els[0].focus(); }
+      }
+      return;
+    }
+    if (e.key === 'Escape') selectTab('town');
+    if (e.code === 'Space' && tab === 'town' && !['INPUT', 'BUTTON'].includes(document.activeElement?.tagName)) { e.preventDefault(); helpTap(); }
+  });
+
+  window.GameBridge = {
+    state: () => s,
+    selection: () => selected,
+    select: selectPlace,
+    assist: helpTap,
+    visit,
+    personReady,
+    personInfo,
+    notice: toast,
+    sound: name => Sound.play(name)
+  };
+  window.App = {
+    get s() { return s; }, E, C, J, PLACES, num, small, secs, esc, toast, portrait, seal, chips, phrase, local, personReady,
+    openModal, closeModal, setModal, save, advance, render, selectTab, selectPlace,
+    visit, mentor, talkLocal, appointLocal, lesson, situation, speak, projectAction, entrust, finale, help, panels: {}
+  };
+
+  // ——— Start ———
+  render();
+  const awayFor = Math.max(0, (Date.now() - s.last) / 1000);
+  if (s.started) {
+    away(awayFor);
+    if (returning && priorRevision < 6) whatsNew();
+    if (E.complete(s) && !s.finaleSeen) finale();
+    save();
+  } else intro();
+
+  // One wall-clock cursor drives everything, so time is never counted twice.
+  function tick() {
+    advance();
+    watch();
+    hud();
+    syncCard();
+    if (tab !== 'town') window.App.panels.sync?.[tab]?.();
+  }
+  setInterval(tick, 100);
+  setInterval(() => { if (s.started) save(); }, 4000);
+  document.addEventListener('visibilitychange', () => { tick(); save(); });
+  window.addEventListener('pagehide', save);
+  window.addEventListener('pageshow', tick);
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
