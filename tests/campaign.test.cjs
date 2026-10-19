@@ -1,25 +1,62 @@
-const assert=require('node:assert/strict'),E=require('../dist/engine.js');
-const s=E.fresh();s.started=true;const milestones=[];
-for(let target=0;target<5;target++){
- const begin=s.time;let done=false;
- for(let second=0;second<7200;second++){
-  if(E.projectReady(s)){const p=E.claimProject(s);assert.ok(p);assert.equal(E.claimProject(s),false,'no duplicate project reward');}
-  E.startProject(s);
-  for(let i=0;i<8;i++){if(!s.stations[i].level){if(E.buy(s,i))milestones.push({city:s.city,place:E.ACTIVITIES[i].id,seconds:Math.round(s.time-begin)});}if(s.stations[i].level&&!s.stations[i].auto)E.automate(s,i);}
-  const p=E.project(s);const reserve=p&&!s.projectActive&&p.tasks.every(([i])=>s.stations[i].level)?p.cost:0;
-  const options=s.stations.map((x,i)=>({i,ratio:E.payout(s,i)/Math.max(1,x.level)/E.duration(s,i)/Math.max(1,E.price(s,i)),cost:E.price(s,i)})).filter(x=>s.stations[x.i].level&&s.stations[x.i].level<100&&s.xp-reserve>x.cost*2).sort((a,b)=>b.ratio-a.ratio);
-  if(options[0])E.buy(s,options[0].i);
-  for(let i=0;i<2;i++){E.train(s,i);E.appoint(s,i);}
-  if(E.ready(s)){assert.equal(s.projects.length,3);assert.ok(s.elders.filter(e=>e.appointed).length>=2);const language=s.jp;assert.ok(E.prestige(s,target===4?-1:target+1));assert.equal(s.jp,language);milestones.push({city:target,handoverSeconds:Math.round(s.time-begin)});done=true;break;}
-  E.step(s,1);
- }
- assert.ok(done,'city '+target+' reachable without taps or lesson bonuses');
+// Full five-city campaign: a plausible player reaches the ending, at a sensible pace,
+// without double rewards. Uses the same player model as tests/pacing.cjs.
+const assert = require('node:assert/strict');
+const E = require('../dist/engine.js');
+const { simulate } = require('./pacing.cjs');
+
+// A focused player with no time away.
+const focused = simulate({ active: 600, away: 0 });
+assert.equal(focused.complete, true, 'all five churches entrusted');
+assert.equal(focused.cities.length, 5);
+for (const c of focused.cities) {
+  assert.ok(c.activeMin >= 20 && c.activeMin <= 90, c.city + ' takes ' + c.activeMin + ' minutes of focused play');
 }
-assert.equal(E.complete(s),true);assert.equal(E.gifts(s).length,5);assert.equal(E.ready(s),false);assert.equal(E.prestige(s,-1),false,'ending cannot grant repeated rewards');assert.ok(s.stations[7].level>0,'finished neighborhood preserved');
-let project=E.fresh();project.started=true;project.jp=20;project.xp=1000;E.buy(project,1);assert.ok(E.startProject(project));assert.equal(E.startProject(project),false);E.start(project,1);E.step(project,20);const restored=E.hydrate(JSON.parse(JSON.stringify(project)));assert.deepEqual(E.projectProgress(restored),E.projectProgress(project));assert.equal(E.claimProject(restored),false,'incomplete work cannot be claimed');restored.stations[0].auto=true;E.step(restored,300);assert.ok(E.projectReady(restored));assert.ok(E.claimProject(restored));const after=restored.xp;assert.equal(E.claimProject(restored),false);assert.equal(after,restored.xp);
-const old=E.fresh();delete old.projects;delete old.projectActive;delete old.situations;old.revision=3;assert.deepEqual(E.hydrate(old).projects,[],'old saves gain campaign without losing progress');
-const malformed=structuredClone(restored);malformed.projectActive={index:1,baseline:[-1,Infinity]};assert.equal(E.hydrate(malformed).projectActive,null);
-const lesson=E.fresh();lesson.started=true;assert.equal(E.solveSituation(lesson,0,2),false);assert.equal(E.solveSituation(lesson,9,0),false,'locked situation');assert.equal(E.solveSituation(lesson,0,0),true);const learned=lesson.jp;assert.equal(E.solveSituation(lesson,0,0),false);assert.equal(lesson.jp,learned,'no repeated first-answer bonus');
-const partner=E.fresh();partner.stations[1].level=1;const normal=E.sideGain(partner,1);partner.stories.sato=4;assert.equal(E.sideGain(partner,1),normal*1.2);
-const complete=E.hydrate(JSON.parse(JSON.stringify(s)));assert.ok(E.complete(complete));assert.deepEqual(complete.projects,[0,1,2]);
-console.log('PASS: all five cities completed from a fresh save with normal purchases and idle production; projects, gifts, partners, lesson gates, save migration, and the ending verified.');console.log(JSON.stringify({simulatedMinutes:Math.round(s.time/60),handover:milestones.filter(x=>'handoverSeconds'in x)},null,2));
+const total = focused.cities.reduce((n, c) => n + c.activeMin, 0);
+assert.ok(total >= 150 && total <= 330, 'whole journey: ' + total + ' focused minutes');
+
+// Someone who plays twenty minutes, then leaves for two hours.
+const casual = simulate({ active: 20, away: 120 });
+assert.equal(casual.complete, true);
+assert.ok(casual.totalWallHours >= 6 && casual.totalWallHours <= 48, 'casual journey: ' + casual.totalWallHours + ' hours');
+assert.equal(casual.learned, 68, 'every word learned along the way');
+for (const v of Object.values(casual.stories)) assert.equal(v, 4, 'every neighbor story shared');
+
+// Projects survive a reload mid-way, cannot be claimed early or twice.
+let p = E.fresh();
+p.started = true; p.jp = 20; p.xp = 1000;
+E.buy(p, 1);
+assert.ok(E.startProject(p));
+assert.equal(E.startProject(p), false);
+E.start(p, 1);
+E.step(p, 20);
+const restored = E.hydrate(JSON.parse(JSON.stringify(p)));
+assert.deepEqual(E.projectProgress(restored), E.projectProgress(p));
+assert.equal(E.claimProject(restored), false, 'incomplete work cannot be claimed');
+restored.stations[0].auto = true;
+E.step(restored, 600);
+assert.ok(E.projectReady(restored));
+const done = E.claimProject(restored);
+assert.ok(done && done.xp >= 100);
+const after = restored.xp;
+assert.equal(E.claimProject(restored), false);
+assert.equal(after, restored.xp);
+const malformed = structuredClone(restored);
+malformed.projectActive = { index: 1, baseline: [-1, Infinity] };
+assert.equal(E.hydrate(malformed).projectActive, null);
+
+// The ending cannot repeat its rewards, and the last neighborhood stays playable.
+const end = E.fresh();
+end.started = true; end.city = 4; end.plants = [0, 1, 2, 3].map(city => ({ city, elders: ['A', 'B'], support: 10 }));
+end.projects = [0, 1, 2]; end.run = 1e16;
+end.stations[4] = { level: 10, auto: true, running: true, progress: 0, cycles: 0 };
+end.elders = end.elders.map((e, i) => i < 2 ? { ...e, met: true, training: 3, read: 3, appointed: true } : e);
+assert.deepEqual(E.destinations(end), [-1]);
+assert.ok(E.prestige(end, -1));
+assert.equal(E.complete(end), true);
+assert.equal(E.ready(end), false);
+assert.equal(E.prestige(end, -1), false, 'no repeated ending rewards');
+assert.ok(end.stations[4].level > 0, 'final neighborhood preserved');
+assert.ok(E.complete(E.hydrate(JSON.parse(JSON.stringify(end)))));
+
+console.log('PASS campaign: all five cities reached by a focused and a casual player; projects, reloads, and the ending verified.');
+console.log(JSON.stringify({ focusedMinutesPerCity: focused.cities.map(c => c.city + ' ' + c.activeMin), casualHours: casual.totalWallHours }));

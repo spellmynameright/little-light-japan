@@ -1,21 +1,189 @@
-const assert=require('node:assert/strict'),fs=require('node:fs');
-const {JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
-const root=__dirname+'/../dist/';
-const html=fs.readFileSync(root+'index.html','utf8').replace(/<script[\s\S]*?<\/script>/g,'');
-function make(saved){const dom=new JSDOM(html,{url:'https://test.local',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window;let now=1760000000000,errors=[],intervals=[];const NativeDate=w.Date;w.Date=class extends NativeDate{constructor(...a){super(...(a.length?a:[now]));}static now(){return now;}};w.setInterval=(fn,ms)=>{intervals.push({fn,ms});return intervals.length;};w.setTimeout=()=>1;w.clearTimeout=()=>{};w.scrollTo=()=>{};w.addEventListener('error',e=>errors.push(e.message));if(saved)w.localStorage.setItem('little-light-japan-v2',JSON.stringify(saved));for(const file of ['journey.js','engine.js','content.js','app.js'])w.eval(fs.readFileSync(root+file,'utf8'));return {w,dom,errors,tick(seconds){now+=seconds*1000;intervals.find(x=>x.ms===100).fn();},save(){intervals.find(x=>x.ms===4000).fn();},now:()=>now};}
-let t=make(),w=t.w;assert.equal(t.errors.length,0);w.document.querySelector('#begin').click();let s=w.GameBridge.state();assert.equal(s.started,true);const initial=s.xp;t.tick(12);assert.ok(s.xp>initial+15,'selected activity repeats without buying automation');assert.equal(s.stations[0].cycles,4);assert.equal(s.stations[0].running,true);assert.match(w.document.querySelector('#task-timer').textContent,/s$/);assert.ok(w.document.querySelector('#task-fill'));
-// In-world controls perform the same actions without opening the side panel.
-assert.equal(w.document.querySelector('#quick-goal').hidden,false);w.document.querySelector('#quick-goal').click();assert.equal(s.quest,1);let oldLevel=s.stations[0].level;w.document.querySelector('#quick-improve').click();assert.equal(s.stations[0].level,oldLevel+1);t.tick(.2);const beforeHelp=s.stations[0].progress;w.document.querySelector('#quick-assist').click();assert.notEqual(s.stations[0].progress,beforeHelp);w.document.querySelector('#expand-world').click();assert.ok(w.document.body.classList.contains('world-expanded'));w.document.querySelector('[data-tab="japanese"]').click();assert.equal(w.document.body.classList.contains('world-expanded'),false);w.document.querySelector('[data-tab="life"]').click();
-// Closing a scene before choosing a response cannot consume it.
-w.document.querySelector('#meet-neighbor').click();assert.ok(w.document.querySelector('[data-choice]'));assert.equal(s.stories.sato||0,0);w.document.querySelector('.modal-close').click();assert.equal(s.stories.sato||0,0);t.tick(40);w.document.querySelector('#meet-neighbor').click();assert.ok(w.document.querySelector('[data-choice]'));w.document.querySelector('.modal-close').click();assert.equal(t.errors.length,0,'quick controls and interrupted dialogue');
-const priorTime=s.time;t.tick(3600);assert.ok(s.time>=priorTime+3600);const after=s.xp;t.tick(0);assert.equal(s.xp,after,'no double catch-up');assert.equal(t.errors.length,0);
-s.jp=1000;s.culture=500;s.bonds=500;s.xp=1e9;s.run=1e9;w.GameBridge.select(1);assert.ok(w.document.querySelector('#unlock-place'));w.document.querySelector('#unlock-place').click();assert.equal(s.focus,1);assert.equal(s.stations[1].level,1);assert.equal(s.stations[0].running,false);w.document.querySelector('#automate').click();assert.equal(s.stations[1].auto,true);w.GameBridge.select(0);const cycles0=s.stations[0].cycles,cycles1=s.stations[1].cycles;t.tick(30);assert.ok(s.stations[0].cycles>cycles0);assert.ok(s.stations[1].cycles>cycles1,'parallel automated work');assert.equal(t.errors.length,0);
-for(const tab of ['japanese','neighbors','boosts','chapter','life']){w.document.querySelector('[data-tab="'+tab+'"]').click();t.tick(.1);assert.equal(t.errors.length,0,'tab '+tab);}
-w.document.querySelector('[data-tab="japanese"]').click();w.document.querySelector('[data-answer="0"]').click();assert.equal(t.errors.length,0);w.document.querySelector('[data-tab="neighbors"]').click();w.document.querySelector('[data-person="sato"]').click();assert.ok(w.document.querySelector('.modal'));w.document.querySelector('[data-choice="0"]').click();w.document.querySelector('#story-done').click();assert.equal(t.errors.length,0);
-// Projects, practical language, gifts, and the final handover are real UI flows.
-w.document.querySelector('[data-tab="chapter"]').click();assert.ok(w.document.querySelector('#project-action'));w.document.querySelector('#project-action').click();assert.ok(s.projectActive);t.tick(80);assert.ok(w.Idle.projectReady(s));w.document.querySelector('#project-action').click();assert.equal(s.projects.length,1);assert.ok(w.document.querySelector('#project-done'));w.document.querySelector('#project-done').click();assert.equal(t.errors.length,0,'project completion');w.document.querySelector('[data-city-info="1"]').click();assert.match(w.document.querySelector('.modal').textContent,/Kanazawa/);w.document.querySelector('.modal-close').click();
-w.document.querySelector('[data-tab="japanese"]').click();let q=w.document.querySelector('[data-situation]');let qi=Number(q.dataset.situation);let answer=w.Idle.JOURNEY.situations[qi].answer;w.document.querySelector('[data-situation-answer="'+answer+'"]').click();assert.ok(s.situations.includes(qi));assert.equal(t.errors.length,0,'situational lesson');
-w.document.querySelector('[data-tab="life"]').click();w.document.querySelector('#settings').click();assert.ok(w.document.querySelector('#export'));w.document.querySelector('#profile-name').value='Jacob';w.document.querySelector('#profile-name').dispatchEvent(new w.Event('change'));w.document.querySelector('#low-effects').click();w.document.querySelector('#reduce-motion').click();assert.equal(s.quality,'low');assert.equal(s.reducedMotion,true);assert.ok(w.document.body.classList.contains('reduce-motion'));w.document.querySelector('[data-profile-coat="#648ca8"]').click();assert.equal(s.coat,'#648ca8');s.sound=true;w.document.querySelector('.modal-close').click();t.save();const saved=JSON.parse(w.localStorage.getItem('little-light-japan-v2'));assert.equal(saved.revision,5);assert.equal(saved.focus,0);assert.equal(t.errors.length,0);t.dom.window.close();
-let r=make(saved);assert.equal(r.w.GameBridge.state().focus,0);assert.equal(r.w.GameBridge.state().sound,true);assert.equal(r.w.GameBridge.state().quality,'low');assert.equal(r.w.GameBridge.state().reducedMotion,true);assert.equal(r.w.GameBridge.state().coat,'#648ca8');r.tick(9);assert.ok(r.w.GameBridge.state().stations[0].running);assert.equal(r.errors.length,0,'reload');assert.equal(r.w.GameBridge.state().projects.length,1);assert.equal(r.w.GameBridge.state().situations.length,1);
-let finish=r.w.GameBridge.state();finish.city=4;finish.projects=[0,1,2];finish.projectActive=null;finish.plants=[0,1,2,3].map(city=>({city,elders:['A','B'],support:10}));finish.elders=[{training:3,progress:0,running:false,appointed:true},{training:3,progress:0,running:false,appointed:true},{training:0,progress:0,running:false,appointed:false}];finish.stations[4]={level:10,auto:true,running:true,progress:0,cycles:20};finish.run=1e8;
-r.w.document.querySelector('[data-tab="chapter"]').click();r.w.document.querySelector('#prestige-button').click();assert.ok(r.w.document.querySelector('[data-destination="-1"]'));r.w.document.querySelector('[data-destination="-1"]').click();assert.equal(r.w.Idle.complete(finish),true);assert.ok(r.w.document.querySelector('#ending-continue'));r.w.document.querySelector('#ending-continue').click();assert.equal(r.errors.length,0,'ending');r.dom.window.close();console.log('PASS: full DOM boot, quick actions, expanded view, profile/preferences, interrupted dialogue, continuous timers, long elapsed time, no duplicate catch-up, scene selection, unlocks, automation, all tabs, lessons, dialogue, settings, project claims, practical Japanese, city gifts, save/reload and campaign ending.');
+// Interface checks in a simulated browser (jsdom): the real page, real buttons, a fake clock.
+const assert = require('node:assert/strict'), fs = require('node:fs');
+const { JSDOM } = require(process.env.JSDOM_PATH || 'jsdom');
+const root = __dirname + '/../dist/';
+const html = fs.readFileSync(root + 'index.html', 'utf8').replace(/<script[\s\S]*?<\/script>/g, '').replace(/<link[^>]*>/g, '');
+const FILES = ['journey.js', 'content.js', 'engine.js', 'audio.js', 'app.js', 'panels.js'];
+
+function make(saved, extra = {}) {
+  const dom = new JSDOM(html, { url: 'https://test.local/', runScripts: 'outside-only', pretendToBeVisual: true });
+  const w = dom.window;
+  let now = 1760000000000;
+  const errors = [], intervals = [], timeouts = [];
+  const NativeDate = w.Date;
+  w.Date = class extends NativeDate { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } };
+  w.setInterval = (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; };
+  w.setTimeout = fn => { timeouts.push(fn); return timeouts.length; };
+  w.clearTimeout = () => {};
+  w.scrollTo = () => {};
+  w.addEventListener('error', e => errors.push(e.message));
+  if (saved) w.localStorage.setItem('little-light-japan-v2', JSON.stringify(saved));
+  for (const [k, v] of Object.entries(extra)) w.localStorage.setItem(k, v);
+  for (const file of FILES) w.eval(fs.readFileSync(root + file, 'utf8'));
+  const $ = q => w.document.querySelector(q);
+  return {
+    w, dom, errors, $,
+    click(q) { const el = $(q); assert.ok(el, 'missing ' + q); el.click(); },
+    tick(seconds) { now += seconds * 1000; intervals.find(x => x.ms === 100).fn(); },
+    save() { intervals.find(x => x.ms === 4000).fn(); },
+    flush() { while (timeouts.length) timeouts.shift()(); },
+    state: () => w.GameBridge.state()
+  };
+}
+
+// ——— A fresh game ———
+let t = make();
+assert.equal(t.errors.length, 0);
+assert.ok(t.$('#begin'), 'the welcome appears for a new player');
+t.$('#your-name').value = 'Jacob';
+t.click('#begin');
+let s = t.state();
+assert.equal(s.started, true);
+assert.equal(t.$('.modal'), null);
+t.tick(12);
+assert.equal(s.stations[0].cycles, 4, 'the focused activity repeats on its own');
+assert.match(t.$('#pc-verb').textContent, /s ·/);
+
+// The goal chip claims rewards; Help speeds up the task; Improve buys a level.
+assert.ok(t.$('#goal-chip').classList.contains('ready'));
+t.click('#goal-chip');
+assert.equal(s.quest, 1);
+const lvl = s.stations[0].level;
+t.click('#pc-improve');
+assert.equal(s.stations[0].level, lvl + 1);
+t.tick(0.2);
+const progress = s.stations[0].progress;
+t.click('#pc-help');
+assert.notEqual(s.stations[0].progress, progress);
+assert.equal(t.errors.length, 0, 'town controls');
+
+// A story popup closed early is not consumed; choosing commits it and remembers the choice.
+t.w.GameBridge.visit('sato');
+assert.ok(t.$('[data-choice]'));
+t.click('.modal-close');
+assert.equal(s.stories.sato || 0, 0);
+t.w.GameBridge.visit('sato');
+t.click('[data-choice="0"]');
+assert.equal(s.stories.sato, 1);
+assert.equal(s.choices.sato0, 0);
+assert.ok(t.$('.response'));
+t.click('[data-close]');
+assert.equal(t.$('.modal'), null);
+
+// Learn: a full lesson with one mistake, then a situation.
+t.click('.tabs [data-tab="learn"]');
+assert.equal(t.$('#panel').hidden, false);
+t.click('[data-lesson="0"]');
+let mistakes = 0;
+for (let q = 0; q < 6; q++) {
+  const W = t.w.Content.WORDS;
+  const prompt = t.$('.prompt')?.textContent;
+  const options = [...t.w.document.querySelectorAll('[data-option]')];
+  const right = options.find(o => { const w = W[Number(o.dataset.option)]; return w[0] === prompt || w[2] === prompt; });
+  if (q === 2) { options.find(o => o !== right).click(); mistakes++; }
+  right.click();
+  t.flush();
+}
+assert.match(t.$('.modal').textContent, /Lesson complete/);
+assert.equal(s.lessons.hello, 2, 'one slip = two stars');
+assert.equal(s.learned.length, 8);
+t.click('[data-close]');
+const sit = t.$('[data-sit]');
+assert.ok(sit, 'a situation is waiting');
+const qi = Number(sit.dataset.sit);
+t.click(`[data-sit="${qi}"][data-answer="${t.w.Journey.situations[qi].answer}"]`);
+assert.ok(s.situations.includes(qi));
+assert.equal(t.errors.length, 0, 'lessons and situations');
+
+// People and Journey render; a project begins and completes through ordinary work.
+t.click('.tabs [data-tab="people"]');
+assert.ok(t.w.document.querySelectorAll('.neighbor').length === 5);
+assert.ok(t.w.document.querySelectorAll('.local').length === 3);
+t.click('.tabs [data-tab="journey"]');
+s.jp = 30; s.xp = 1e6;
+t.w.App.selectPlace(1);
+t.click('#pc-unlock');
+assert.equal(s.stations[1].level, 1, 'the corner shop opens from the place card');
+assert.equal(s.focus, 1);
+t.click('#pc-auto');
+assert.equal(s.stations[1].auto, true);
+t.w.App.selectPlace(0);
+t.click('#pc-auto');
+t.click('.tabs [data-tab="journey"]');
+t.click('#project-action');
+assert.ok(s.projectActive, 'project begun');
+t.tick(300);
+assert.ok(t.w.Idle.projectReady(s));
+t.click('#project-action');
+assert.equal(s.projects.length, 1);
+t.click('[data-close]');
+assert.equal(t.errors.length, 0, 'project flow');
+
+// Long absence: credited once, never twice.
+const before = s.time;
+t.tick(3600);
+assert.ok(s.time >= before + 3600);
+const xp = s.xp;
+t.tick(0);
+assert.equal(s.xp, xp, 'no double catch-up');
+
+// Settings persist across a reload.
+t.click('.tabs [data-tab="town"]');
+t.click('#settings-btn');
+t.$('#profile-name').value = 'Jacob';
+t.$('#profile-name').dispatchEvent(new t.w.Event('change'));
+t.click('#opt-low');
+t.click('#opt-motion');
+t.click('[data-coat="#648ca8"]');
+assert.equal(s.quality, 'low');
+assert.equal(s.reducedMotion, true);
+assert.ok(t.w.document.body.classList.contains('reduce-motion'));
+t.click('.modal-close');
+t.save();
+const saved = JSON.parse(t.w.localStorage.getItem('little-light-japan-v2'));
+assert.equal(saved.revision, 6);
+assert.equal(t.errors.length, 0, 'settings');
+t.dom.window.close();
+
+let r = make(saved);
+const rs = r.state();
+assert.equal(rs.coat, '#648ca8');
+assert.equal(rs.quality, 'low');
+assert.equal(rs.reducedMotion, true);
+assert.equal(rs.projects.length, 1);
+assert.equal(rs.lessons.hello, 2);
+r.tick(9);
+assert.ok(rs.stations[rs.focus].running);
+assert.equal(r.errors.length, 0, 'reload');
+r.dom.window.close();
+
+// An older save sees what's new and keeps its progress.
+const old = JSON.parse(JSON.stringify(saved));
+old.revision = 5;
+let o = make(old);
+assert.match(o.w.document.body.textContent, /The neighborhood has grown/);
+assert.equal(o.state().projects.length, 1);
+o.dom.window.close();
+
+// The final handover leads to the ending, which can be finished and replayed.
+const fin = JSON.parse(JSON.stringify(saved));
+Object.assign(fin, { city: 4, projects: [0, 1, 2], projectActive: null, run: 1e16, finaleSeen: false });
+fin.plants = [0, 1, 2, 3].map(city => ({ city, elders: ['A', 'B'], support: 10 }));
+fin.stations[4] = { level: 10, auto: true, running: true, progress: 0, cycles: 20 };
+fin.elders = [0, 1, 2].map(i => ({ met: true, training: 3, progress: 0, running: false, appointed: i < 2, read: 3 }));
+let f = make(fin);
+f.click('.tabs [data-tab="journey"]');
+f.click('#entrust');
+f.click('[data-dest="-1"]');
+assert.equal(f.w.Idle.complete(f.state()), true);
+for (let i = 0; i < 4; i++) f.click('[data-next]');
+assert.match(f.$('.modal').textContent, /Will you stay for tea/);
+f.click('[data-close]');
+assert.equal(f.state().finaleSeen, true);
+f.click('.tabs [data-tab="journey"]');
+f.click('#read-ending');
+assert.ok(f.$('[data-next]'));
+assert.equal(f.errors.length, 0, 'ending');
+f.dom.window.close();
+
+console.log('PASS ui: welcome, timers, goals, help, improve, interrupted and chosen stories, a full lesson, situations, tabs, unlocks, routines, a community project, long absences, settings, reloads, older saves, and the ending.');
