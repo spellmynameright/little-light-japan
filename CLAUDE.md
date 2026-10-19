@@ -1,71 +1,31 @@
 # A Little Light: Claude handoff
 
-You are continuing an existing idle game for Jacob Trimm. Read README.md and inspect the implementation before editing. Preserve the current game rather than recreating it from the screenshots or the live URL.
+You are continuing a finished idle game for Jacob Trimm. Read README.md, then the code. Preserve the current game rather than rebuilding it. Jacob is a beginner: explain changes in plain language, and ask before pushing to GitHub unless he says to publish/push.
 
 ## Product intent
-A traditional incremental / idle life game about a missionary in Japan. References supplied by the user: Idle Success, Idle Life Sim, Egg Inc, Adventure Capitalist, and Clicker Heroes. The user wants a character, an engaging visible world, purposeful actions, and meaningful growth. He dislikes generic cards, arbitrary “small step” clicks, and timers that appear broken.
+A traditional incremental / idle life game about a missionary in Japan. References: Idle Success, Idle Life Sim, Egg Inc, Adventure Capitalist, Clicker Heroes. He wants a character, an engaging visible world, purposeful actions and meaningful growth; he dislikes generic cards, arbitrary "small step" clicks and timers that look broken.
 
-Japanese combines idle study with playable lessons. As the player learns, Japanese labels and dialogue acquire translations. Culture, friendships, hospitality, Christian faith, and local leadership matter. Tone: George MacDonald / C. S. Lewis, wonder, humility, hope, service, mutuality; avoid a contemporary evangelical sales pitch. People are not conversion targets or a currency. Prestige means developing and appointing local elders, entrusting a church, and beginning in a new city.
+Japanese combines idle study with playable lessons; as the player learns, labels, signs and dialogue become readable. Culture, friendship, hospitality, Christian faith and local leadership matter. Tone: George MacDonald / C. S. Lewis — wonder, humility, hope, service, mutuality; never a contemporary evangelical sales pitch. People are not conversion targets or a currency. Prestige means developing and appointing local elders, entrusting a church, and beginning again in a new city. Sister project for inspiration: `spellmynameright/japan-evangelistic-band` (JEB) — the readable-signs and word-by-word dialogue ideas came from its walking prototype.
 
-## Current implementation
-Buildless HTML/CSS/JavaScript with vendored Three.js 0.180.0; no framework or runtime package installation needed to serve dist/. No backend. Browser localStorage stores the game; exports/imports move progress between browsers. Eight activities, upgrade milestones, automation, five cities, fifteen community projects, ten practical Japanese scenarios, twenty relationship stories, twenty-eight vocabulary entries, permanent city gifts, and a final campaign ending. The final neighborhood remains playable.
+## Structure (v1.0, "the overhaul")
+Buildless HTML/CSS/JS; vendored Three.js 0.180.0; no backend. Classic scripts share globals in this order: `journey.js` (window.Journey) → `content.js` (window.Content) → `engine.js` (window.Idle) → `audio.js` (window.Sound) → `app.js` (window.App, window.GameBridge) → `panels.js` (fills App.panels). `world.js` is an ES module importing `world/kit.js`, `world/town.js`, `world/people.js`; it reads state through `window.GameBridge` every frame and exposes `window.WorldView`. It never mutates game state.
 
-Main source:
-- dist/engine.js: event-based economy, saves/migration, projects, gifts, elders, ending.
-- dist/app.js: DOM UI, controls, conversations, lessons, timekeeping, settings.
-- dist/world.js: interactive procedural 3D town, characters, seasons, camera, fallback.
-- dist/journey.js: campaign stories and practical Japanese scenarios.
-- dist/content.js: relationship stories and vocabulary.
-- dist/style.css and dist/index.html: presentation and layout.
-- dist/assets/: generated art. ASSETS.md documents portrait provenance.
-- tests/: engine regression, full-campaign simulation, DOM integration.
+- Economy knobs live in `engine.js`: `ACTIVITIES` (cost ladder ~12×, payout ~7×, cycle seconds 3→80), `TUNE` (price growth 1.15, milestone levels, ×2 per milestone), `BOOSTS`, `GOALS` (reward = seconds of production), `TRAINING_TIME` (mentoring 5/8/12 minutes), city `goal` in `journey.js`. Learning (Japanese/culture/connection) is paced per second by `levelFactor` and does not speed up with cycle speed.
+- After any balance change run `node tests/pacing.cjs 600 0` and `node tests/campaign.test.cjs`. Current targets: ~30–50 focused minutes per city, ~3½ hours total.
+- Content is data: add words only by appending to `WORDS` (saves store indices); situations likewise append only; stories have `gains` per choice and optional `echo` lines that recall an earlier choice.
+- Buildings: each place builder in `world/town.js` fills `core` (always visible), `shell` (fades in close view), `glow` and `sglow` (night-lit parts; `sglow` fades with the shell). Level details appear at 10/25/50/100. Signs are canvas textures (`signMesh`) — text is always drawn by the game, never baked into art.
 
-## Run locally
-Serve dist/ over HTTP, not file:// (world.js is an ES module). For example, if Python is installed:
+## Contracts to preserve
+- localStorage key `little-light-japan-v2`; save `version` 2, `revision` 6. Older revisions must keep loading: give new fields defaults in `fresh()` and validate them in `hydrate()`.
+- One wall-clock cursor advances the game; saving advances it first. Offline credit is capped at 8 hours. No double credit on visibility changes or reload.
+- The focused activity repeats without automation; routines keep other places going.
+- Help/tap advances the focused task by 0.65 s; rewards come at completion, never as unrelated currency.
+- Projects, lessons (first completion), situations, stories and the ending cannot pay twice.
+- Story progress commits only when a response is chosen; closing a popup must not consume it. Elder conversations commit when opened.
+- Keep the generated portraits (`dist/assets/neighbors.webp`, originals in `art-source/`) and the Three.js license. Never include account tokens or credential files.
 
-    python3 -m http.server 5173 --directory dist
+## Testing
+`npm ci && npm test` runs the engine, campaign and jsdom interface tests (CI runs them on every PR and before each deploy). For visuals, use Playwright with the pre-installed Chromium (`--use-gl=angle --use-angle=swiftshader`) at iPhone 13 size; serve `dist/` with `python3 -m http.server`. The town follows the device clock — set `GameBridge.state().clock = 'day'` for daytime screenshots. Real iPhone testing by Jacob is the final word.
 
-Open http://localhost:5173 in a real browser. Choose another available local server if needed.
-
-Engine checks require Node.js:
-
-    node tests/engine.test.cjs
-    node tests/campaign.test.cjs
-
-DOM checks also need jsdom 26.1.0:
-
-    npm ci
-    node tests/ui.test.cjs
-
-Alternatively set JSDOM_PATH to an existing jsdom installation. Do not commit node_modules.
-
-## What has actually been verified
-All three test suites passed at export. The campaign simulation completes in about 49 simulated minutes using efficient purchases and ordinary idle production, without tapping or lesson bonuses. That is a reachability check, not measured human playtime. Tests cover continuous and offline time, duplicate-credit protection, project claims, progression, interrupted dialogue, quick actions, expanded view, settings persistence, saves, and ending. Scene construction and city transitions were exercised without WebGL.
-
-Crucial limitation: real browser/WebGL and actual phone playtesting have NOT been performed. Do not claim those passed. This is the highest-value next work. The previous environment lacked its required browser-testing integration; that environment limitation does not constrain your own available tools.
-
-## Recommended next task
-1. Run and visually inspect the game in a real browser at phone and desktop sizes.
-2. Play from a fresh save through the first fifteen minutes. Use a separate test browser/save; preserve the user's current save.
-3. Find overlap, unreadable text, camera/interaction issues, frame-rate problems, confusing goals, weak upgrade feedback, and boring waits.
-4. Fix observed problems. Then improve activity animations and the consequences of relationship choices as justified by playtesting.
-5. Re-run relevant tests and report concrete changes plus remaining limitations.
-
-## Preserve these contracts
-- localStorage key: little-light-japan-v2. The save's version is 2 and revision is 5. Preserve old-save compatibility; new fields need defaults in hydrate().
-- Advance gameplay from one wall-clock cursor. Saving advances that cursor first. Offline credit is capped at eight hours. Avoid double credit on visibility changes/reload.
-- The focused activity repeats without purchasing automation. Automation keeps other activities running while the character is elsewhere.
-- Tapping advances the focused task by 0.65 seconds; rewards occur at completion, not as unrelated free currency.
-- Completed projects and language scenarios cannot award twice.
-- Conversation progress is committed only after the player chooses a response. Closing a dialogue must not discard it.
-- Keep generated portraits and vendored Three.js license. Never include account tokens or local credential files.
-
-## Publication and round trip
-Live Site: https://little-light-japan.trimmja.chatgpt.site
-The .openai/hosting.json file identifies the existing Site. This ZIP contains source, not a deployment credential. Local edits do not automatically change the hosted game. Preserve the Site identity for the existing backup deployment. The user has authorized migrating primary hosting to GitHub Pages; use the GitHub Pages workflow below for publication after repository setup.
-
-Export base commit: b83b3b728d390d41db43fb8e8390aedb9b1e1606
-
-
-## GitHub Pages workflow
-This checkout is prepared for GitHub Pages. Install development dependencies with `npm ci`; run all checks with `npm test`. GitHub Actions tests pull requests and deploys `dist/` after a successful push to `main`. Enable Settings → Pages → Source: GitHub Actions once. Keep all asset URLs relative for the `/little-light-japan/` project path. The original ChatGPT Site is a separate deployment; GitHub pushes do not update it. Do not use or request ChatGPT Site credentials for Pages.
+## Publication
+GitHub Pages via GitHub Actions: pushes to `main` that pass tests deploy `dist/` to https://spellmynameright.github.io/little-light-japan/. The original ChatGPT Site (`.openai/hosting.json`) is a separate backup deployment that GitHub pushes don't update. Bump the `?v=` query strings in `index.html` and `VERSION` in `dist/sw.js` when shipping changes, so phones pick them up.

@@ -49,23 +49,23 @@
   // The purpose shown at the top of the town. `reward` is seconds of production.
   const GOALS = [
     { title: 'Finish your first study session', target: 1, value: s => s.stations[0].cycles, reward: 30 },
-    { title: 'Learn enough Japanese to shop locally', target: 5, value: s => s.jp, reward: 30 },
-    { title: 'Open the corner shop errands', target: 1, value: s => Number(s.stations[1].level > 0), reward: 30 },
+    // In later cities this becomes a letter home, ready at once.
+    { title: s => s.city === 0 ? 'Tap Mrs. Sato to hear her story' : 'Write a letter home to Hanamimachi', target: 1, value: s => s.city === 0 ? Object.values(s.stories).reduce((n, v) => n + v, 0) : 1, reward: 30 },
     { title: 'Finish your first Japanese lesson', target: 1, value: s => Object.keys(s.lessons).length, reward: 40 },
-    { title: 'Improve your study space to level 10', target: 10, value: s => s.stations[0].level, reward: 40 },
-    { title: 'Establish a habit that runs without you', target: 1, value: s => s.stations.filter(x => x.auto).length, reward: 45 },
-    { title: 'Learn your first greetings', target: 20, value: s => s.jp, reward: 45 },
+    { title: 'Open the corner shop', target: 1, value: s => Number(s.stations[1].level > 0), reward: 40 },
+    { title: 'Improve your study corner to level 10', target: 10, value: s => s.stations[0].level, reward: 45 },
+    { title: 'Build a routine that runs without you', target: 1, value: s => s.stations.filter(x => x.auto).length, reward: 45 },
+    { title: 'Reach 20 Japanese insight', target: 20, value: s => s.jp, reward: 60 },
     { title: 'Become a regular at the café', target: 1, value: s => Number(s.stations[2].level > 0), reward: 60 },
-    { title: 'Share a story with a neighbor', target: 1, value: s => Object.values(s.stories).reduce((n, v) => n + v, 0), reward: 60 },
     { title: 'Build three routines', target: 3, value: s => s.stations.filter(x => x.auto).length, reward: 60 },
     { title: 'Join the language exchange', target: 1, value: s => Number(s.stations[3].level > 0), reward: 60 },
     { title: 'Complete a community project', target: 1, value: s => s.projects.length, reward: 90 },
-    { title: 'Understand the words around the table', target: 130, value: s => s.jp, reward: 90 },
+    { title: 'Reach 130 Japanese insight', target: 130, value: s => s.jp, reward: 90 },
     { title: 'Open the table to the neighborhood', target: 1, value: s => Number(s.stations[4].level > 0), reward: 90 },
     { title: 'Begin mentoring a local leader', target: 1, value: s => s.elders.reduce((n, e) => n + e.training + (e.running ? 1 : 0), 0), reward: 90 },
     { title: 'Open the reading room', target: 1, value: s => Number(s.stations[5].level > 0), reward: 120 },
     { title: 'Plant the community garden', target: 1, value: s => Number(s.stations[6].level > 0), reward: 120 },
-    { title: 'Open the neighborhood house', target: 1, value: s => Number(s.stations[7].level > 0), reward: 120 }
+    { title: 'Open everyone’s house', target: 1, value: s => Number(s.stations[7].level > 0), reward: 120 }
   ];
 
   function freshElders() {
@@ -303,6 +303,7 @@
 
   // ——— Goals ———
   function goal(s) { return GOALS[s.quest] || null; }
+  function goalTitle(s, g = goal(s)) { return g ? (typeof g.title === 'function' ? g.title(s) : g.title) : ''; }
   // A goal is worth `reward` seconds of everything you have running (at least 50 XP).
   function goalReward(s, g = goal(s)) {
     return g ? Math.max(50, Math.round(rate(s, true) * g.reward)) : 0;
@@ -610,7 +611,7 @@
     JOURNEY, CONTENT, ACTIVITIES, CITIES, THRESHOLDS, LANGUAGE_NAMES, TRAINING_TIME, LOCAL_PLACE, BOOSTS, GOALS, MAX_LEVEL,
     fresh, language, gifts, global, projectBonus, cultureBonus, bondsBonus, marks, nextMark, duration, placeBoost, payout, support, rate,
     notebook, notebookBonus, levelFactor, sideGain, accessible, price, quantity, buy, autoCost, automate, start, resume, earn, assist, tap, step, upgrade,
-    goal, goalReward, claimGoal,
+    goal, goalTitle, goalReward, claimGoal,
     lessonAt, lessonOpen, lessonStars, finishLesson, situationOpen, solveSituation,
     person, storyReady, visitWait, canVisit, visit, chooseStory, storyEcho,
     localPresent, meetLocal, canTrain, train, readElder, appoint,

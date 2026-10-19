@@ -817,3 +817,6 @@ body:not([data-tab="town"]) .place-card { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .goal-chip.ready, .strip-place.ready, .pin-badge { animation: none; }
 }
+
+/* The ending and city arrivals let the town show through. */
+.modal-backdrop.finale, .modal-backdrop.city { background: rgba(30, 40, 50, 0.18); backdrop-filter: none; -webkit-backdrop-filter: none; }

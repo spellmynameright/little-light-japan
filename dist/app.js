@@ -162,14 +162,14 @@
     const v = Math.min(g.value(s), g.target), ready = v >= g.target;
     chip.classList.toggle('ready', ready);
     $('#goal-kicker').textContent = ready ? 'Tap to claim · +' + num(E.goalReward(s)) + ' XP' : 'A purpose for today · ' + (s.quest + 1) + '/' + E.GOALS.length;
-    $('#goal-title').textContent = g.title;
+    $('#goal-title').textContent = E.goalTitle(s, g);
     $('#goal-fill').style.width = (v / g.target) * 100 + '%';
   }
   function claimGoal() {
     advance();
     const g = E.goal(s);
     if (!g) { selectTab('journey'); return; }
-    if (g.value(s) < g.target) { toast('Keep going: ' + g.title.toLowerCase() + '.'); return; }
+    if (g.value(s) < g.target) { toast('Keep going: ' + E.goalTitle(s, g).toLowerCase() + '.'); return; }
     const reward = E.claimGoal(s);
     if (!reward) return;
     Sound.play('goal');
@@ -710,6 +710,7 @@
   function arrival() {
     const city = E.CITIES[s.city];
     Sound.play('city');
+    window.WorldView?.setMode('town');
     log('Arrived in ' + city.name + '. ' + city.arrival, 'city');
     save();
     openModal({
@@ -718,7 +719,8 @@
         <p class="theme">${esc(city.theme)}</p><p class="story-text">${esc(city.arrival)}</p>
         <p class="aside">${esc(city.district)} · ${esc(city.tag)}. You begin again in a small apartment — but you are not the person who arrived in Tokyo.</p>
         <button class="btn-primary" data-close>Unpack</button>`,
-      bind: el => el.querySelector('[data-close]').onclick = closeModal
+      bind: el => el.querySelector('[data-close]').onclick = closeModal,
+      onClose: () => { window.WorldView?.setMode('close'); viewToggleLabel(); }
     });
   }
   function finale() {
@@ -727,6 +729,9 @@
     let n = 0;
     const cards = J.finale;
     Sound.play('city');
+    // Every window in the neighborhood lit, seen from above.
+    window.WorldView?.setMode('town');
+    window.WorldView?.holdHour(20);
     function card() {
       if (n < cards.length) {
         const c = cards[n];
@@ -740,7 +745,7 @@
         <p class="story-text">The neighborhood is still here. The kettle is still on. You can stay as long as you like.</p>
         <button class="btn-primary" data-close>Stay a while</button>`, el => el.querySelector('[data-close]').onclick = closeModal);
     }
-    openModal({ label: 'The end of the journey', cls: 'story finale', closable: false, html: '', bind: card });
+    openModal({ label: 'The end of the journey', cls: 'story finale', closable: false, html: '', bind: card, onClose: () => { window.WorldView?.holdHour(null); viewToggleLabel(); } });
   }
 
   // ——— Settings ———
@@ -762,7 +767,8 @@
         <p class="aside">Saved automatically in this browser. Your current place and routines keep going for up to 8 hours while you are away. Backups move your game between devices.</p>
         <div class="row"><button class="btn-quiet" id="opt-export">Export backup</button><button class="btn-quiet" id="opt-import">Import backup</button></div>
         <p class="aside">${num(s.total)} lifetime XP · chapter ${s.chapters + 1} · ${s.learned.length} words · ${Math.floor(s.time / 3600)}h ${Math.floor((s.time % 3600) / 60)}m of life in Japan${storageOK ? '' : ' · <b>Storage unavailable — export a backup.</b>'}</p>
-        <div class="row"><button class="btn-quiet" id="opt-help">How to play</button><button class="btn-quiet danger" id="opt-reset">Start over…</button></div>`,
+        <div class="row"><button class="btn-quiet" id="opt-help">How to play</button><button class="btn-quiet danger" id="opt-reset">Start over…</button></div>
+        <p class="aside credits">A Little Light · made by Jacob Trimm with Claude · 3D by Three.js (MIT licence) · neighborhoods and people are fictional.</p>`,
       bind: el => {
         el.querySelector('#profile-name').onchange = e => { s.name = e.target.value.trim().slice(0, 24) || 'Friend'; save(); };
         el.querySelectorAll('[data-coat]').forEach(b => b.onclick = () => { s.coat = b.dataset.coat; el.querySelectorAll('[data-coat]').forEach(x => x.classList.toggle('chosen', x === b)); save(); });

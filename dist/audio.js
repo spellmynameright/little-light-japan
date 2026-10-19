@@ -84,9 +84,19 @@
 
   root.Sound = {
     get enabled() { return enabled; },
-    set enabled(v) { enabled = !!v; if (enabled) audio(); },
+    set enabled(v) { enabled = !!v; },
     // Unlock audio on the first touch (iOS requires a user gesture).
-    unlock() { if (enabled) audio(); },
+    unlock() {
+      if (!enabled) return;
+      const a = audio();
+      if (!a || a.__unlocked) return;
+      // Older iPhones need a (silent) sound started inside the first touch.
+      const src = a.createBufferSource();
+      src.buffer = a.createBuffer(1, 1, 22050);
+      src.connect(a.destination);
+      src.start(0);
+      a.__unlocked = true;
+    },
     play(name, arg) {
       if (!enabled || !sounds[name]) return;
       const now = performance.now();

@@ -14,7 +14,7 @@
     const books = E.notebook(s);
     const open = J.situations.map((q, i) => ({ q, i })).filter(x => E.situationOpen(s, x.i) && !s.situations.includes(x.i));
     const sit = open[0];
-    const solved = s.situations.length, total = J.situations.filter(q => q.city === undefined || s.situations.includes(J.situations.indexOf(q)) || q.city === s.city).length;
+    const solved = s.situations.length;
     root.innerHTML = head('Make sense of the world.', 'Study runs on its own. Lessons give it a head start — and every word makes the town a little more readable.') + `
       <section class="card language">
         <div class="lang-top"><span class="big-glyph">あ</span><div><small>Japanese insight</small><h3 id="lang-name">${esc(E.LANGUAGE_NAMES[lv])}</h3></div><b class="big-num" id="lang-num">${num(s.jp)}</b></div>

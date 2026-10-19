@@ -87,7 +87,6 @@ function rebuildCity(state) {
     train.userData.next = 4;
     scene.add(train);
   }
-  setupPeople(state);
   setupWeather(state.city);
   shadowDirty = true;
 }
@@ -425,9 +424,11 @@ const KEYS = [
 ];
 const cA = new THREE.Color(), cB = new THREE.Color();
 function lerpColor(a, b, f) { return cA.set(a).lerp(cB.set(b), f).clone(); }
+let forcedHour = null;
 function timeOfDay(state) {
   let h;
-  if (state.clock === 'day') h = 10.5;
+  if (forcedHour !== null) h = forcedHour;
+  else if (state.clock === 'day') h = 10.5;
   else { const d = new Date(); h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; }
   let k = 0;
   while (k < KEYS.length - 2 && KEYS[k + 1][0] <= h) k++;
@@ -713,6 +714,8 @@ new ResizeObserver(resize).observe(host);
 function frame(now) {
   requestAnimationFrame(frame);
   if (document.hidden || now - last < frameInterval - 2) return;
+  // On phones another tab covers the town completely: rest the GPU.
+  if (document.body.dataset.tab !== 'town' && host.clientWidth < 700 && window.innerWidth < 900) { last = now; return; }
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   const state = bridge()?.state();
@@ -762,6 +765,8 @@ window.WorldView = {
   },
   toggle() { return this.setMode(view.mode === 'town' ? 'close' : 'town'); },
   recenter() { view.pan.set(0, 0, 0); view.zoom = 1; },
+  // For special moments: hold the town at a given hour (e.g. 20 for lamplight), or null to follow the clock.
+  holdHour(h) { forcedHour = h; lastSunUpdate = 0; },
   // A burst of feedback at a place: the building bounces and text floats up.
   celebrate(i, text, kind) {
     if (places[i]) places[i].bounce = 1;
