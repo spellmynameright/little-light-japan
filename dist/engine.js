@@ -13,7 +13,7 @@
 
   // The eight places of the neighborhood. `needs` = [Japanese, culture, connection].
   const ACTIVITIES = [
-    { id: 'study', jp: '日本語の勉強', name: 'Japanese study', sub: 'Flashcards at your apartment', icon: 'あ', cost: 10, base: 5, seconds: 3, needs: [0, 0, 0], mentor: 'A daily study habit', side: 'jp', amount: 0.08, color: '#759db0' },
+    { id: 'study', jp: '日本語の勉強', name: 'Japanese study', sub: 'Flashcards at your apartment', icon: 'あ', cost: 10, base: 5, seconds: 3, needs: [0, 0, 0], mentor: 'A daily study habit', side: 'jp', amount: 0.22, color: '#759db0' },
     { id: 'errands', jp: '毎日の買い物', name: 'Everyday errands', sub: 'Learn how the neighborhood works', icon: '袋', cost: 120, base: 35, seconds: 5, needs: [5, 0, 0], mentor: 'Mrs. Sato’s local tips', side: 'culture', amount: 0.1, color: '#d4a064' },
     { id: 'cafe', jp: '喫茶店', name: 'Café regular', sub: 'A familiar seat, a familiar face', icon: '茶', cost: 1500, base: 250, seconds: 8, needs: [20, 3, 0], mentor: 'A standing tea invitation', side: 'bonds', amount: 0.12, color: '#bd8f87' },
     { id: 'tutor', jp: '英会話', name: 'Language exchange', sub: 'You teach a little. You learn a lot.', icon: '話', cost: 18000, base: 1700, seconds: 12, needs: [60, 12, 8], mentor: 'A weekly exchange group', side: 'jp', amount: 0.4, color: '#8b92b4' },
@@ -52,20 +52,20 @@
     // In later cities this becomes a letter home, ready at once.
     { title: s => s.city === 0 ? 'Tap Mrs. Sato to hear her story' : 'Write a letter home to Hanamimachi', target: 1, value: s => s.city === 0 ? Object.values(s.stories).reduce((n, v) => n + v, 0) : 1, reward: 30 },
     { title: 'Finish your first Japanese lesson', target: 1, value: s => Object.keys(s.lessons).length, reward: 40 },
-    { title: 'Open the corner shop', target: 1, value: s => Number(s.stations[1].level > 0), reward: 40 },
+    { title: 'Open the corner shop', place: 1, target: 1, value: s => Number(s.stations[1].level > 0), reward: 40 },
     { title: 'Improve your study corner to level 10', target: 10, value: s => s.stations[0].level, reward: 45 },
     { title: 'Build a routine that runs without you', target: 1, value: s => s.stations.filter(x => x.auto).length, reward: 45 },
     { title: 'Reach 20 Japanese insight', target: 20, value: s => s.jp, reward: 60 },
-    { title: 'Become a regular at the café', target: 1, value: s => Number(s.stations[2].level > 0), reward: 60 },
+    { title: 'Become a regular at the café', place: 2, target: 1, value: s => Number(s.stations[2].level > 0), reward: 60 },
     { title: 'Build three routines', target: 3, value: s => s.stations.filter(x => x.auto).length, reward: 60 },
-    { title: 'Join the language exchange', target: 1, value: s => Number(s.stations[3].level > 0), reward: 60 },
+    { title: 'Join the language exchange', place: 3, target: 1, value: s => Number(s.stations[3].level > 0), reward: 60 },
     { title: 'Complete a community project', target: 1, value: s => s.projects.length, reward: 90 },
     { title: 'Reach 130 Japanese insight', target: 130, value: s => s.jp, reward: 90 },
-    { title: 'Open the table to the neighborhood', target: 1, value: s => Number(s.stations[4].level > 0), reward: 90 },
+    { title: 'Open the table to the neighborhood', place: 4, target: 1, value: s => Number(s.stations[4].level > 0), reward: 90 },
     { title: 'Begin mentoring a local leader', target: 1, value: s => s.elders.reduce((n, e) => n + e.training + (e.running ? 1 : 0), 0), reward: 90 },
-    { title: 'Open the reading room', target: 1, value: s => Number(s.stations[5].level > 0), reward: 120 },
-    { title: 'Plant the community garden', target: 1, value: s => Number(s.stations[6].level > 0), reward: 120 },
-    { title: 'Open everyone’s house', target: 1, value: s => Number(s.stations[7].level > 0), reward: 120 }
+    { title: 'Open the reading room', place: 5, target: 1, value: s => Number(s.stations[5].level > 0), reward: 120 },
+    { title: 'Plant the community garden', place: 6, target: 1, value: s => Number(s.stations[6].level > 0), reward: 120 },
+    { title: 'Open everyone’s house', place: 7, target: 1, value: s => Number(s.stations[7].level > 0), reward: 120 }
   ];
 
   function freshElders() {

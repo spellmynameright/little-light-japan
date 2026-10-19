@@ -161,9 +161,17 @@
     }
     const v = Math.min(g.value(s), g.target), ready = v >= g.target;
     chip.classList.toggle('ready', ready);
-    $('#goal-kicker').textContent = ready ? 'Tap to claim · +' + num(E.goalReward(s)) + ' XP' : 'A purpose for today · ' + (s.quest + 1) + '/' + E.GOALS.length;
+    $('#goal-kicker').textContent = ready ? 'Tap to claim · +' + num(E.goalReward(s)) + ' XP' : g.place !== undefined ? placeNeeds(g.place) : 'A purpose for today · ' + (s.quest + 1) + '/' + E.GOALS.length;
     $('#goal-title').textContent = E.goalTitle(s, g);
     $('#goal-fill').style.width = (v / g.target) * 100 + '%';
+  }
+  // What still stands between you and the next place.
+  function placeNeeds(i) {
+    const a = E.ACTIVITIES[i], icons = ['あ', '❀', '♡'], keys = ['jp', 'culture', 'bonds'];
+    const missing = a.needs.map((v, k) => s[keys[k]] < v ? icons[k] + ' ' + Math.floor(s[keys[k]]) + '/' + v : '').filter(Boolean);
+    if (i > 0 && !s.stations[i - 1].level) missing.push(PLACES[i - 1].room + ' first');
+    if (!missing.length) return s.xp >= a.cost ? 'Ready — open it from the place strip' : 'Needs ' + num(a.cost) + ' XP';
+    return 'Needs ' + missing.join(' · ');
   }
   function claimGoal() {
     advance();
