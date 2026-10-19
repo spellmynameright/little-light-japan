@@ -36,14 +36,14 @@
 
   // Equipment: one purchase each per city. target -1 = all places.
   const BOOSTS = [
-    { id: 'dictionary', name: 'Picture dictionary', desc: 'Japanese study earns ×2 XP', cost: 2000, target: 0, mult: 2, icon: '辞' },
-    { id: 'bike', name: 'A secondhand bicycle', desc: 'Everyday errands earn ×3 XP', cost: 30000, target: 1, mult: 3, icon: '輪' },
-    { id: 'kettle', name: 'A proper tea set', desc: 'Café visits earn ×3 XP', cost: 400000, target: 2, mult: 3, icon: '茶' },
-    { id: 'notebooks', name: 'Better teaching materials', desc: 'Language exchange earns ×3 XP', cost: 6000000, target: 3, mult: 3, icon: '冊' },
-    { id: 'tableware', name: 'A table with extra places', desc: 'Every place earns ×2 XP', cost: 300000000, target: -1, mult: 2, icon: '膳', home: 4 },
-    { id: 'books', name: 'A library of possibilities', desc: 'Story evenings earn ×5 XP', cost: 4000000000, target: 5, mult: 5, icon: '本' },
-    { id: 'tools', name: 'Good garden tools', desc: 'The garden earns ×3 XP', cost: 60000000000, target: 6, mult: 3, icon: '鍬' },
-    { id: 'housekeys', name: 'Keys for the neighborhood', desc: 'Every place earns ×3 XP', cost: 1000000000000, target: -1, mult: 3, icon: '鍵', home: 7 }
+    { id: 'dictionary', name: 'Picture dictionary', desc: 'Japanese study earns ×2 XP', cost: 200, target: 0, mult: 2, icon: '辞' },
+    { id: 'bike', name: 'A secondhand bicycle', desc: 'Everyday errands earn ×3 XP', cost: 2500, target: 1, mult: 3, icon: '輪' },
+    { id: 'kettle', name: 'A proper tea set', desc: 'Café visits earn ×3 XP', cost: 30000, target: 2, mult: 3, icon: '茶' },
+    { id: 'notebooks', name: 'Better teaching materials', desc: 'Language exchange earns ×3 XP', cost: 400000, target: 3, mult: 3, icon: '冊' },
+    { id: 'tableware', name: 'A table with extra places', desc: 'Every place earns ×2 XP', cost: 20000000, target: -1, mult: 2, icon: '膳', home: 4 },
+    { id: 'books', name: 'A library of possibilities', desc: 'Story evenings earn ×5 XP', cost: 60000000, target: 5, mult: 5, icon: '本' },
+    { id: 'tools', name: 'Good garden tools', desc: 'The garden earns ×3 XP', cost: 700000000, target: 6, mult: 3, icon: '鍬' },
+    { id: 'housekeys', name: 'Keys for the neighborhood', desc: 'Every place earns ×3 XP', cost: 20000000000, target: -1, mult: 3, icon: '鍵', home: 7 }
   ];
 
   // The purpose shown at the top of the town. `reward` is seconds of production.
